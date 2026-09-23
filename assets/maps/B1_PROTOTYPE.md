@@ -4,7 +4,8 @@ Owner: Luke Broussard (Role B).
 Card: https://trello.com/c/HoKeQKvy/11-b1-build-map-rendering-movement-and-collision
 
 Status: proposal for review, not a runtime map or an agreed shared schema.
-This sketch can be revised after T0's engine decision and A1's contracts.
+Luke confirmed 2D top-down exploration on September 22, 2026. Runtime engine
+integration and data formats still need coordination with A1/A2.
 
 ## Small test area
 
@@ -32,7 +33,7 @@ The vertical wall supports head-on collision and sliding/passing tests.
 The L-shaped corner exercises corner clipping. The small block near the
 bottom provides a second obstacle. All walkable tiles connect to the spawn.
 
-## Proposed presentation for a 2D prototype
+## Proposed prototype presentation
 
 Use simple, distinct floor, wall, and player shapes until D supplies art.
 Keep the player distinguishable by shape as well as color. Proposed controls:
