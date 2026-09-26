@@ -53,3 +53,9 @@ flutter build web --release --no-pub
 # On Windows with Visual Studio's C++ desktop workload installed:
 flutter build windows --release --no-pub
 ```
+
+## Team workflow
+
+Read [AGENTS.md](AGENTS.md) before changing shared code. Use the pull request
+template to record the Trello task, dependency approvals, and actual test results.
+The primary demo is a browser at a minimum 1280 x 720 viewport; Windows is secondary.
