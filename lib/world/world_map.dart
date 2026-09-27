@@ -60,8 +60,9 @@ class WorldCollision {
         p.x - halfSize < -_epsilon ||
         p.y - halfSize < -_epsilon ||
         p.x + halfSize > map.width + _epsilon ||
-        p.y + halfSize > map.height + _epsilon)
+        p.y + halfSize > map.height + _epsilon) {
       return false;
+    }
     for (
       var y = (p.y - halfSize + _epsilon).floor();
       y <= (p.y + halfSize - _epsilon).floor();
@@ -76,8 +77,9 @@ class WorldCollision {
             y < 0 ||
             x >= map.width ||
             y >= map.height ||
-            map.blocked[y * map.width + x])
+            map.blocked[y * map.width + x]) {
           return false;
+        }
       }
     }
     return true;
