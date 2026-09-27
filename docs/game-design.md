@@ -34,5 +34,7 @@ The deadline and availability are not recorded here because none were supplied.
 - Conceptual diagram: [Relations.drawio.png](Relations.drawio.png)
 - Review candidate: [contracts.md](contracts.md)
 
-The diagram is conceptual. A1 is not frozen until B/C/D review its proposed
-interfaces. A2/A3 runtime work and A5 integration must respect that gate.
+The diagram is conceptual. Jordan approved the B1-v1 world boundary after
+Luke/Joseph feedback; see contracts.md. B1 can begin from the tested PR handoff
+with a fake host/notifier. Remaining combat/menu/save contracts are provisional;
+full A1 completion and dependent A2/A3/A5 work still require those decisions.

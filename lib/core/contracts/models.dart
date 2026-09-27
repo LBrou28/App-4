@@ -1,5 +1,5 @@
-/// A1 review proposal. Do not treat these interfaces as agreed until the
-/// B/C/D review checklist in docs/contracts.md is resolved.
+/// B1 world boundary approved by Jordan; combat/menu/save models provisional.
+/// See docs/contracts.md for the exact scope and remaining decisions.
 library;
 
 void requireId(String value, String field) {
@@ -23,7 +23,7 @@ Map<String, int> checkedCounts(Map<String, int> values, String field) {
 enum AppMode { title, loading, exploration, dialogue, battle, gameOver, error }
 
 /// Tile-space center coordinates, with the top-left map corner at (0, 0).
-/// Coordinate convention is a proposal requiring B's approval.
+/// B1-v1 coordinate convention approved by Jordan after B review.
 final class WorldPosition {
   WorldPosition({required this.mapId, required this.x, required this.y}) {
     requireId(mapId, 'mapId');
