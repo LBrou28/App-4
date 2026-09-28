@@ -1,12 +1,19 @@
 import '../core/contracts.dart';
 import 'world_map.dart';
+import 'world_encounters.dart';
 
 /// Local input only; the host remains the sole owner of position/GameState.
 class WorldController {
-  WorldController({required this.host, required this.collision});
+  WorldController({
+    required this.host,
+    required this.collision,
+    this.encounters,
+  });
 
   final WorldHost host;
   final WorldCollision collision;
+  final EncounterStepper? encounters;
+  double _stepDistance = 0;
   final _held = <Object, WalkDirection>{};
   static const tilesPerSecond = 3.0;
   static const maximumFrameSeconds = .1;
@@ -27,7 +34,10 @@ class WorldController {
   }
 
   void release(Object source) => _held.remove(source);
-  void clearInput() => _held.clear();
+  void clearInput() {
+    _held.clear();
+    _stepDistance = 0;
+  }
 
   /// Safe to call from a synchronous host notification: no host writes here.
   void synchronize() {
@@ -51,6 +61,26 @@ class WorldController {
     final next = collision.move(state.position, active, tilesPerSecond * dt);
     if (next.x == state.position.x && next.y == state.position.y) return false;
     final accepted = host.updatePosition(next, expectedRevision: revision);
+    // Host notifications have finished. Count only committed physical travel,
+    // never attempted distance, elapsed frames, or an external teleport.
+    final committed = host.state.position;
+    if (accepted &&
+        host.movementEnabled &&
+        committed.mapId == next.mapId &&
+        committed.x == next.x &&
+        committed.y == next.y &&
+        encounters != null) {
+      _stepDistance +=
+          (committed.x - state.position.x).abs() +
+          (committed.y - state.position.y).abs();
+      while (_stepDistance >= 1 - 1e-9 && host.movementEnabled) {
+        _stepDistance = (_stepDistance - 1).clamp(0.0, double.infinity);
+        if (encounters!.recordAcceptedStep(host)) {
+          clearInput();
+          break;
+        }
+      }
+    }
     // Always re-read after the transaction, including rejection. No optimistic state.
     synchronize();
     return accepted;
