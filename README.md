@@ -1,6 +1,10 @@
 # App-4
 
-Flutter starter application with package name `app_4`.
+Flutter RPG prototype with package name `app_4`.
+
+The default app now opens the A2 practice-world shell: New Game, exploration,
+pause/resume and loading recovery. Battles, party menus and saving remain pending.
+See [A2 handoff](docs/a2-handoff.md) for scope, dependencies and review gates.
 
 Includes Android, iOS, web, Windows, macOS, and Linux project files.
 Building each platform requires its corresponding development tools.
