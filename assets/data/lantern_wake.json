@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "lantern-wake.draft.1",
+  "title": "The Lantern Wake",
+  "premise": "The tide has stopped beneath Bellwether's harbor. Four apprentice keepers must carry a living lantern to the buried tide bell before the stranded fishing fleet runs out of water.",
+  "heroes": [
+    {"id":"hero.ada","name":"Ada","description":"A harbor guard who would rather mend a shield than raise it.","jobId":"job.warrior"},
+    {"id":"hero.ren","name":"Ren","description":"A rope runner who knows every roof above the docks.","jobId":"job.monk"},
+    {"id":"hero.iona","name":"Iona","description":"An apprentice healer who listens for the sea in empty shells.","jobId":"job.white_mage"},
+    {"id":"hero.tavi","name":"Tavi","description":"A lamp maker learning to turn a spark into a signal.","jobId":"job.black_mage"}
+  ],
+  "jobs": [
+    {"id":"job.warrior","name":"Warrior","description":"Protect the crew and hold the front line.","abilityIds":[],"equipmentIds":["item.harbor_blade","item.keeper_coat"]},
+    {"id":"job.monk","name":"Monk","description":"Fight with discipline and an unburdened stance.","abilityIds":[],"equipmentIds":["item.rope_wraps","item.keeper_coat"]},
+    {"id":"job.white_mage","name":"White Mage","description":"Keep companions standing with restorative magic.","abilityIds":["spell.mend"],"equipmentIds":["item.shell_staff","item.linen_robe"]},
+    {"id":"job.black_mage","name":"Black Mage","description":"Explore elemental weaknesses with focused magic.","abilityIds":["spell.ember","spell.rill"],"equipmentIds":["item.shell_staff","item.linen_robe"]}
+  ],
+  "items": [
+    {"id":"item.salves","name":"Harbor Salve","description":"A travel tin of restorative herbs. Healing amount belongs to C's rules.","kind":"consumable","slotId":null},
+    {"id":"item.ether","name":"Dew Phial","description":"Condensed lantern dew. MP recovery belongs to C's rules.","kind":"consumable","slotId":null},
+    {"id":"item.harbor_blade","name":"Harbor Blade","description":"A short rescue blade, kept sharp for tangled lines.","kind":"weapon","slotId":"weapon"},
+    {"id":"item.rope_wraps","name":"Rope Wraps","description":"Padded wraps made from a retired mooring line.","kind":"weapon","slotId":"weapon"},
+    {"id":"item.shell_staff","name":"Shell Staff","description":"A driftwood staff that hums near the tide bell.","kind":"weapon","slotId":"weapon"},
+    {"id":"item.keeper_coat","name":"Keeper Coat","description":"A reinforced coat for long watches in salt spray.","kind":"armor","slotId":"body"},
+    {"id":"item.linen_robe","name":"Linen Robe","description":"Light woven cloth stitched with lantern patterns.","kind":"armor","slotId":"body"}
+  ],
+  "spells": [
+    {"id":"spell.mend","name":"Mend","description":"Restore one ally. C defines cost, amount and KO eligibility.","target":"ally","element":"restoration"},
+    {"id":"spell.ember","name":"Ember","description":"A precise burst of heat against one enemy.","target":"enemy","element":"fire"},
+    {"id":"spell.rill","name":"Rill","description":"A ribbon of water against one enemy.","target":"enemy","element":"water"}
+  ],
+  "enemies": [
+    {"id":"enemy.brine_mite","name":"Brine Mite","description":"A brittle scavenger; introduces basic physical attacks.","kind":"regular","spellIds":[],"tactic":"Low-pressure opening encounter. C chooses stats and rewards."},
+    {"id":"enemy.wick_moth","name":"Wick Moth","description":"A glowing moth drawn to the crew's lantern.","kind":"regular","spellIds":["spell.ember"],"tactic":"Encourages trying water magic and recovery between battles."},
+    {"id":"enemy.silt_guard","name":"Silt Guard","description":"An old maintenance shell hardened by years of silt.","kind":"regular","spellIds":[],"tactic":"Contrasts durable physical defense with magic; C decides exact resistances."},
+    {"id":"enemy.hollow_bell","name":"The Hollow Bell","description":"A bell-keeper construct mistaking silence for safety.","kind":"boss","spellIds":["spell.rill"],"tactic":"Alternate pressure and recovery windows. Reward mixed jobs without requiring a single party composition."}
+  ],
+  "maps": [
+    {"id":"map.bellwether","name":"Bellwether Harbor","description":"A compact dock square: keeper at the central lantern, rest house to the west, east gate to the causeway. Safe from encounters.","exitIds":["map.salt_path"],"enemyIds":[],"dialogueIds":["dialogue.call","dialogue.rest","dialogue.ending"]},
+    {"id":"map.salt_path","name":"Saltglass Causeway","description":"A looping coastal path. A short north spur holds the supply chest; a sheltered bench offers job advice. South path returns to town; east enters the cistern.","exitIds":["map.bellwether","map.tide_cistern"],"enemyIds":["enemy.brine_mite","enemy.wick_moth"],"dialogueIds":["dialogue.jobs"]},
+    {"id":"map.tide_cistern","name":"The Tide Cistern","description":"Two chambers around a dry well: entrance landing and bell chamber. Put a rest alcove before a clearly marked boss threshold and keep the return route open.","exitIds":["map.salt_path"],"enemyIds":["enemy.silt_guard","enemy.hollow_bell"],"dialogueIds":["dialogue.threshold","dialogue.bell"]}
+  ],
+  "npcs": [
+    {"id":"npc.mara","name":"Keeper Mara","description":"The last keeper who remembers the tide bell ringing.","mapId":"map.bellwether","dialogueId":"dialogue.call"},
+    {"id":"npc.orrin","name":"Orrin","description":"A patient ferryman keeping the rest house open.","mapId":"map.bellwether","dialogueId":"dialogue.rest"},
+    {"id":"npc.sable","name":"Sable","description":"A retired keeper who teaches that a job is a tool, not a destiny.","mapId":"map.salt_path","dialogueId":"dialogue.jobs"}
+  ],
+  "dialogues": [
+    {"id":"dialogue.call","speakerId":"npc.mara","lines":["The sea has forgotten how to return. Our boats are resting on stone.","Carry this lantern through the Saltglass Causeway to the Tide Cistern. Let its light reach the old bell.","Bring every kind of courage. A strong arm and a healing hand both keep a crew afloat."]},
+    {"id":"dialogue.rest","speakerId":"npc.orrin","lines":["The kettle is warm and the bunks are free. Rest before you leave.","You can always return here. There is no prize for facing the sea exhausted."]},
+    {"id":"dialogue.jobs","speakerId":"npc.sable","lines":["A keeper learns more than one craft. Open Jobs and consider a different role before the cistern.","Wick moths dislike water, while the old guards shrug off rough handling. A spellcaster can help.","Take the salve from the north supply chest. Use it when the road wears you down."]},
+    {"id":"dialogue.threshold","speakerId":"hero.ada","lines":["There is something moving behind the bell. We should check our equipment and rest in the alcove.","When everyone is ready, we go together."]},
+    {"id":"dialogue.bell","speakerId":"hero.iona","lines":["It was not trying to hurt the harbor. It was afraid the next tide would take us away.","Listen. Four voices, one note. We can teach it to begin again."]},
+    {"id":"dialogue.ending","speakerId":"npc.mara","lines":["The water is rising! Look at the lanterns on the boats.","You did not bring back yesterday's sea. You made room for tomorrow's.","Tonight, Bellwether keeps the light for you. Thank you, keepers."]}
+  ],
+  "flags": ["quest.lantern.accepted","quest.lantern.bell_awake","quest.lantern.complete"],
+  "chests": [
+    {"id":"chest.causeway_supplies","mapId":"map.salt_path","itemId":"item.salves","quantity":2}
+  ],
+  "restPoints": [
+    {"id":"rest.harbor","mapId":"map.bellwether","name":"Orrin's Rest House","description":"Free recovery before leaving town or after returning. A/C owns the recovery command."},
+    {"id":"rest.cistern","mapId":"map.tide_cistern","name":"Lantern Alcove","description":"Safe recovery before the boss threshold. B must keep this reachable without crossing the boss trigger."}
+  ],
+  "quest": {
+    "id":"quest.lantern","name":"Wake the Tide",
+    "steps":[
+      {"id":"step.accept","mapId":"map.bellwether","dialogueId":"dialogue.call","requiresFlags":[],"setsFlag":"quest.lantern.accepted","enemyId":null},
+      {"id":"step.prepare","mapId":"map.salt_path","dialogueId":"dialogue.jobs","requiresFlags":["quest.lantern.accepted"],"setsFlag":null,"enemyId":null},
+      {"id":"step.enter","mapId":"map.tide_cistern","dialogueId":"dialogue.threshold","requiresFlags":["quest.lantern.accepted"],"setsFlag":null,"enemyId":null},
+      {"id":"step.bell","mapId":"map.tide_cistern","dialogueId":"dialogue.bell","requiresFlags":["quest.lantern.accepted"],"setsFlag":"quest.lantern.bell_awake","enemyId":"enemy.hollow_bell"},
+      {"id":"step.return","mapId":"map.bellwether","dialogueId":"dialogue.ending","requiresFlags":["quest.lantern.bell_awake"],"setsFlag":"quest.lantern.complete","enemyId":null}
+    ]
+  }
+}

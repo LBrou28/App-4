@@ -193,3 +193,15 @@ B1 readiness is narrower than A1 completion. A2's complete battle/menu flow and
 A3 still need the relevant provisional decisions resolved. A5 additionally waits
 for B3, C2, C4, D1 and completed A2/A3. Passing tests do not imply runtime gameplay
 is implemented. Jordan will relay the B1 handoff to Luke.
+
+
+## A2 additive B2/B3 implementation handoff
+
+Jordan authorized A's interaction operations to unblock B2/B3. The implemented
+`WorldInteractionHost` extends the existing B1 capability without adding required
+methods to B1 fake hosts. See [world operations](world-operations.md) for exact
+revision, reach, named-spawn, dialogue token and atomic chest rules. Dialogue UI
+now uses D1's panel through A's adapter. This does not approve combat rules,
+party commands, quest progression or persistence, and is not a claim of B/C/D
+peer approval. Earlier notes deferring these interaction operations are superseded
+by this narrow handoff; broader A1 contracts remain provisional as documented.
