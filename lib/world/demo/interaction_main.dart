@@ -26,6 +26,7 @@ Widget buildInteractionDemo() {
           host: host,
           changes: changes,
           interactions: world.targets,
+          landmarks: world.landmarks,
           mapName: world.names[map.id],
         ),
   );

@@ -7,7 +7,8 @@ import '../ui/content/demo_content.dart';
 import 'world_interactions.dart';
 import 'world_map.dart';
 
-/// Playable B2/B3 geometry, not the final B4 map/art pass.
+/// B4's playable tutorial-island geometry. It deliberately supplies no new
+/// story effects; D's content and A's operations own those later handoffs.
 final class InteractionWorld {
   InteractionWorld(DemoContent content) {
     WorldTarget target(
@@ -25,24 +26,24 @@ final class InteractionWorld {
       target(
         'npc.mara',
         town,
-        4,
-        5,
+        11,
+        7,
         WorldTargetKind.npc,
         content.label('npcs', 'npc.mara'),
       ),
       target(
         'npc.orrin',
         town,
-        2,
-        7,
+        5,
+        9,
         WorldTargetKind.npc,
         content.label('npcs', 'npc.orrin'),
       ),
       target(
         'npc.sable',
         route,
-        7,
         8,
+        10,
         WorldTargetKind.npc,
         content.label('npcs', 'npc.sable'),
       ),
@@ -50,15 +51,15 @@ final class InteractionWorld {
         'chest.causeway_supplies',
         route,
         9,
-        2,
+        3,
         WorldTargetKind.chest,
         'Supply chest',
       ),
       target(
         'exit.harbor_to_causeway',
         town,
-        16,
-        6,
+        22,
+        8,
         WorldTargetKind.exit,
         'Saltglass Causeway',
       ),
@@ -66,15 +67,15 @@ final class InteractionWorld {
         'exit.causeway_to_harbor',
         route,
         3,
-        12,
+        15,
         WorldTargetKind.exit,
         'Bellwether Harbor',
       ),
       target(
         'exit.causeway_to_cistern',
         route,
-        20,
-        6,
+        26,
+        8,
         WorldTargetKind.exit,
         'Tide Cistern',
       ),
@@ -82,37 +83,117 @@ final class InteractionWorld {
         'exit.cistern_to_causeway',
         dungeon,
         1,
-        6,
+        9,
         WorldTargetKind.exit,
         'Saltglass Causeway',
+      ),
+    ]);
+    landmarks = List.unmodifiable([
+      WorldLandmark(
+        id: 'landmark.bellwether.rest_house',
+        mapId: town,
+        x: 4,
+        y: 4,
+        label: 'Rest house',
+        kind: WorldLandmarkKind.rest,
+      ),
+      WorldLandmark(
+        id: 'landmark.bellwether.lantern',
+        mapId: town,
+        x: 11,
+        y: 6,
+        label: 'Harbor lantern',
+        kind: WorldLandmarkKind.lantern,
+      ),
+      WorldLandmark(
+        id: 'landmark.bellwether.dock',
+        mapId: town,
+        x: 19,
+        y: 8,
+        label: 'Eastern dock',
+        kind: WorldLandmarkKind.dock,
+      ),
+      WorldLandmark(
+        id: 'landmark.saltglass.supplies',
+        mapId: route,
+        x: 9,
+        y: 4,
+        label: 'Supply spur',
+        kind: WorldLandmarkKind.supplies,
+      ),
+      WorldLandmark(
+        id: 'landmark.saltglass.shelter',
+        mapId: route,
+        x: 8,
+        y: 11,
+        label: 'Sheltered bench',
+        kind: WorldLandmarkKind.shelter,
+      ),
+      WorldLandmark(
+        id: 'landmark.cistern.rest',
+        mapId: dungeon,
+        x: 5,
+        y: 4,
+        label: 'Rest alcove',
+        kind: WorldLandmarkKind.rest,
+      ),
+      WorldLandmark(
+        id: 'landmark.cistern.threshold',
+        mapId: dungeon,
+        x: 16,
+        y: 9,
+        label: 'Marked threshold',
+        kind: WorldLandmarkKind.threshold,
+      ),
+      WorldLandmark(
+        id: 'landmark.cistern.bell',
+        mapId: dungeon,
+        x: 20,
+        y: 9,
+        label: 'Bell chamber',
+        kind: WorldLandmarkKind.bell,
       ),
     ]);
     maps = Map.unmodifiable({
       town: _map(
         town,
-        18,
-        12,
-        {'entry': (4, 6), 'from_causeway': (14, 6)},
-        {(10, 3), (11, 3), (10, 4), (11, 4), (10, 8), (11, 8)},
+        24,
+        16,
+        {'entry': (19, 8), 'from_causeway': (19, 8)},
+        {
+          for (var x = 2; x <= 7; x++)
+            if (x != 4) ...{(x, 2), (x, 6)},
+          for (var y = 3; y <= 5; y++) ...{(2, y), (7, y)},
+          for (var x = 14; x <= 17; x++) ...{(x, 3), (x, 12)},
+          for (var y = 4; y <= 11; y++) ...{(14, y), (17, y)},
+        },
       ),
       route: _map(
         route,
-        22,
-        14,
-        {'entry': (3, 10), 'from_harbor': (3, 10), 'from_cistern': (18, 6)},
+        28,
+        18,
+        {'entry': (3, 13), 'from_harbor': (3, 13), 'from_cistern': (24, 8)},
         {
-          for (var x = 10; x <= 13; x++)
-            for (var y = 5; y <= 8; y++) (x, y),
+          for (var x = 12; x <= 16; x++)
+            for (var y = 5; y <= 12; y++) (x, y),
+          for (var x = 5; x <= 7; x++) ...{(x, 6), (x, 8)},
+          for (var y = 7; y <= 8; y++) (5, y),
         },
       ),
       dungeon: _map(
         dungeon,
+        24,
         18,
-        14,
-        {'entry': (3, 6), 'from_causeway': (3, 6)},
+        {'entry': (3, 9), 'from_causeway': (3, 9)},
         {
-          for (var y = 1; y < 13; y++)
-            if (y != 6 && y != 7) (8, y),
+          for (var y = 1; y < 17; y++)
+            if (y != 8 && y != 9) (10, y),
+          for (var x = 3; x <= 7; x++)
+            if (x != 5) ...{(x, 2), (x, 6)},
+          for (var y = 3; y <= 5; y++) ...{(3, y), (7, y)},
+          for (var x = 18; x <= 21; x++) ...{(x, 6), (x, 12)},
+          for (var y = 7; y <= 11; y++)
+            if (y != 9) ...{(18, y), (21, y)},
         },
       ),
     });
@@ -160,6 +241,7 @@ final class InteractionWorld {
   }
 
   late final WorldInteractions targets;
+  late final List<WorldLandmark> landmarks;
   late final Map<String, MapDefinition> maps;
   late final Map<String, String> names;
   late final WorldOperations operations;

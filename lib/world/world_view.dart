@@ -24,6 +24,7 @@ class WorldView extends StatefulWidget {
     required this.changes,
     this.encounters,
     this.interactions,
+    this.landmarks = const [],
     this.mapName,
   });
   final MapDefinition map;
@@ -31,6 +32,7 @@ class WorldView extends StatefulWidget {
   final Listenable changes;
   final EncounterStepper? encounters;
   final WorldInteractions? interactions;
+  final List<WorldLandmark> landmarks;
   final String? mapName;
 
   @override
@@ -223,6 +225,7 @@ class _WorldViewState extends State<WorldView>
                           position: position,
                           showPlayer: error == null,
                           targets: widget.interactions?.targets ?? const [],
+                          landmarks: widget.landmarks,
                           openedChests: widget.host.state.quests.openedChestIds,
                           facing: _controller.facing,
                         ),
@@ -317,6 +320,7 @@ class WorldPainter extends CustomPainter {
     required this.position,
     this.showPlayer = true,
     this.targets = const [],
+    this.landmarks = const [],
     this.openedChests = const {},
     this.facing = WalkDirection.down,
   });
@@ -324,6 +328,7 @@ class WorldPainter extends CustomPainter {
   final WorldPosition position;
   final bool showPlayer;
   final List<WorldTarget> targets;
+  final List<WorldLandmark> landmarks;
   final Set<String> openedChests;
   final WalkDirection facing;
   static const tileSize = 48.0;
@@ -379,6 +384,43 @@ class WorldPainter extends CustomPainter {
           );
         }
       }
+    }
+    for (final landmark in landmarks.where((l) => l.mapId == map.id)) {
+      final center = Offset(
+        (landmark.x + .5) * tileSize,
+        (landmark.y + .5) * tileSize,
+      );
+      final (color, marker) = switch (landmark.kind) {
+        WorldLandmarkKind.rest => (const Color(0xffefe8c5), 'R'),
+        WorldLandmarkKind.lantern => (const Color(0xffffdd70), 'L'),
+        WorldLandmarkKind.dock => (const Color(0xffa4d8d8), 'D'),
+        WorldLandmarkKind.supplies => (const Color(0xffd5b275), 'S'),
+        WorldLandmarkKind.shelter => (const Color(0xffb6d39d), 'H'),
+        WorldLandmarkKind.threshold => (const Color(0xffdc8879), '!'),
+        WorldLandmarkKind.bell => (const Color(0xffe7bd57), 'B'),
+      };
+      canvas.drawCircle(center, 14, Paint()..color = const Color(0xff19313a));
+      canvas.drawCircle(
+        center,
+        11,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      );
+      final text = TextPainter(
+        text: TextSpan(
+          text: marker,
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Roboto',
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
     }
     for (final target in targets.where((t) => t.mapId == map.id)) {
       final center = Offset(
@@ -480,6 +522,7 @@ class WorldPainter extends CustomPainter {
       oldDelegate.position != position ||
       oldDelegate.showPlayer != showPlayer ||
       oldDelegate.targets != targets ||
+      oldDelegate.landmarks != landmarks ||
       oldDelegate.openedChests != openedChests ||
       oldDelegate.facing != facing;
 }

@@ -3,6 +3,35 @@ import 'world_map.dart';
 
 enum WorldTargetKind { npc, chest, exit }
 
+/// A named point of interest shown on B's authored maps. Landmarks are visual
+/// only: story progression and effects remain owned by their respective A/C/D
+/// operations.
+enum WorldLandmarkKind { rest, lantern, dock, supplies, shelter, threshold, bell }
+
+final class WorldLandmark {
+  WorldLandmark({
+    required this.id,
+    required this.mapId,
+    required this.x,
+    required this.y,
+    required this.label,
+    required this.kind,
+  }) {
+    requireId(id, 'world landmark');
+    requireId(mapId, 'landmark map');
+    if (x < 0 || y < 0 || label.trim().isEmpty) {
+      throw ArgumentError('Invalid landmark placement: $id');
+    }
+  }
+
+  final String id;
+  final String mapId;
+  final int x;
+  final int y;
+  final String label;
+  final WorldLandmarkKind kind;
+}
+
 /// B's placement and reach rule. A owns the registered operation and its effects.
 final class WorldTarget {
   WorldTarget({

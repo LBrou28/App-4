@@ -53,7 +53,7 @@ void main() {
   }
 
   void enterRoute() {
-    place('map.bellwether', 16.5, 6.5);
+    place('map.bellwether', 22.5, 8.5);
     expect(
       host.useMapExit(
         'exit.harbor_to_causeway',
@@ -117,7 +117,8 @@ void main() {
     'NPC requires facing adjacency; dialogue pauses and does not auto reopen',
     () {
       final c = control();
-      expect(c.interact(), isFalse); // Facing down; Mara is above the spawn.
+      expect(c.interact(), isFalse);
+      place('map.bellwether', 11.5, 8.5); // Mara is directly above.
       c.press('up', WalkDirection.up);
       expect(c.interactionTarget!.id, 'npc.mara');
       expect(c.interact(), isTrue);
@@ -130,9 +131,9 @@ void main() {
       expect(c.advance(.1), isFalse);
       expect(host.state.position, same(position));
       expect(host.activeDialogue, isNull);
-      place('map.bellwether', 5.5, 6.5); // Diagonal cannot reach Mara.
+      place('map.bellwether', 10.5, 9.5); // Diagonal cannot reach Mara.
       expect(c.interact(), isFalse);
-      place('map.bellwether', 4.5, 8.5); // Distant cannot reach Mara.
+      place('map.bellwether', 9.5, 10.5); // Distant cannot reach Mara.
       expect(c.interact(), isFalse);
     },
   );
@@ -140,7 +141,7 @@ void main() {
   test(
     'movement onto an exit transitions once with preserved state and no bounce',
     () {
-      place('map.bellwether', 15.8, 6.5);
+      place('map.bellwether', 21.8, 8.5);
       final c = control();
       final before = host.state;
       c.press('right', WalkDirection.right);
@@ -153,7 +154,7 @@ void main() {
       expect(c.advance(.1), isFalse);
       final next = control();
       expect(next.advance(.1), isFalse);
-      place('map.salt_path', 3.5, 11.8);
+      place('map.salt_path', 3.5, 14.8);
       next.press('down', WalkDirection.down);
       next.advance(.1);
       expect(host.map!.id, 'map.bellwether');
@@ -163,12 +164,12 @@ void main() {
 
   test('dungeon exits return to the named route spawn', () {
     enterRoute();
-    place('map.salt_path', 19.8, 6.5);
+    place('map.salt_path', 25.8, 8.5);
     final c = control()..press('r', WalkDirection.right);
     c.advance(.1);
     expect(host.map!.id, 'map.tide_cistern');
     expect(host.state.position, same(host.map!.spawns['from_causeway']));
-    place('map.tide_cistern', 2.1, 6.5);
+    place('map.tide_cistern', 2.1, 9.5);
     final d = control()..press('l', WalkDirection.left);
     d.advance(.1);
     expect(host.map!.id, 'map.salt_path');
@@ -177,7 +178,7 @@ void main() {
 
   test('chest gives two authored salves once, even after map return and restored snapshot', () async {
     enterRoute();
-    place('map.salt_path', 9.5, 3.5);
+    place('map.salt_path', 9.5, 4.5);
     final c = control()..press('up', WalkDirection.up);
     final before = host.state.inventory.quantities['item.salves'] ?? 0;
     expect(c.interact(), isTrue);
@@ -189,10 +190,10 @@ void main() {
     final granted = host.state;
     expect(c.interact(), isFalse);
     expect(host.state, same(granted));
-    place('map.salt_path', 3.5, 12.5);
+    place('map.salt_path', 3.5, 15.5);
     host.useMapExit('exit.causeway_to_harbor', expectedRevision: host.revision);
     enterRoute();
-    place('map.salt_path', 9.5, 3.5);
+    place('map.salt_path', 9.5, 4.5);
     expect(c.interact(), isFalse);
     final restored = host.state;
     final loaded = AppController(
@@ -262,6 +263,7 @@ void main() {
                   host: host,
                   changes: changes,
                   interactions: world.targets,
+                  landmarks: world.landmarks,
                   mapName: world.names[map.id],
                 ),
           ),
@@ -273,6 +275,10 @@ void main() {
       final app =
           tester.widget<WorldView>(find.byType(WorldView)).host
               as AppController;
+      app.updatePosition(
+        WorldPosition(mapId: 'map.bellwether', x: 11.5, y: 8.5),
+        expectedRevision: app.revision,
+      );
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyE);
@@ -293,7 +299,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
       // Move close to the exit, then use actual keyboard travel to cross it.
       app.updatePosition(
-        WorldPosition(mapId: 'map.bellwether', x: 15.8, y: 6.5),
+        WorldPosition(mapId: 'map.bellwether', x: 21.8, y: 8.5),
         expectedRevision: app.revision,
       );
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
@@ -306,7 +312,7 @@ void main() {
         'map.salt_path',
       );
       app.updatePosition(
-        WorldPosition(mapId: 'map.salt_path', x: 9.5, y: 3.5),
+        WorldPosition(mapId: 'map.salt_path', x: 9.5, y: 4.5),
         expectedRevision: app.revision,
       );
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
