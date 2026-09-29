@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../core/contracts.dart';
+import '../battle/ui/battle_screen.dart';
 import '../ui/dialogue_panel.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
 
 class GameApp extends StatefulWidget {
-  const GameApp({super.key, required this.loadWorld, required this.buildWorld});
+  const GameApp({
+    super.key,
+    required this.loadWorld,
+    required this.buildWorld,
+    this.battles = const {},
+    this.trainingEncounterId,
+    this.battleNames = const {},
+    this.battleTitle = 'Battle',
+    this.title = 'App-4 • Practice world',
+    this.introduction = 'Explore the practice grounds with arrow keys, WASD or the on-screen controls.\n\nThis early build supports exploration. Battles and saving are coming later.',
+  });
+  final Map<String, BattleFactory> battles;
+  final String? trainingEncounterId;
+  final Map<String, String> battleNames;
+  final String battleTitle;
+  final String title;
+  final String introduction;
   final WorldLoader loadWorld;
   final WorldViewBuilder Function(MapDefinition map) buildWorld;
   @override
@@ -68,7 +85,7 @@ class _GameAppState extends State<GameApp> {
 
   void _resume() {
     _controller.setPaused(false);
-    _worldFocus.requestFocus();
+    if (_controller.movementEnabled) _worldFocus.requestFocus();
   }
 
   Future<void> _startNewGame() async {
@@ -82,7 +99,10 @@ class _GameAppState extends State<GameApp> {
   @override
   void initState() {
     super.initState();
-    _controller = AppController(loadWorld: widget.loadWorld);
+    _controller = AppController(
+      loadWorld: widget.loadWorld,
+      battles: widget.battles,
+    );
     _controller.addListener(_scheduleDialogue);
     _lifecycle = AppLifecycleListener(
       onInactive: () => _controller.setPaused(true),
@@ -140,7 +160,7 @@ class _GameAppState extends State<GameApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigator,
-    title: 'App-4 • Practice world',
+    title: widget.title,
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       brightness: Brightness.dark,
@@ -156,11 +176,22 @@ class _GameAppState extends State<GameApp> {
           _world = widget.buildWorld(map)(context, _controller, _controller);
         }
         final exploring = _controller.mode == AppMode.exploration;
+        final battling = _controller.mode == AppMode.battle;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('App-4 • Practice world'),
+            title: Text(widget.title),
             actions: [
-              if (exploring)
+              if (exploring &&
+                  !_controller.paused &&
+                  widget.trainingEncounterId != null)
+                TextButton(
+                  onPressed: () => _controller.requestEncounter(
+                    EncounterRequest(definitionId: widget.trainingEncounterId!),
+                    expectedRevision: _controller.revision,
+                  ),
+                  child: const Text('Training battle'),
+                ),
+              if (exploring || battling)
                 TextButton(
                   onPressed: () {
                     if (_controller.paused) {
@@ -188,16 +219,12 @@ class _GameAppState extends State<GameApp> {
                 ),
               if (_controller.mode == AppMode.title)
                 Positioned.fill(
-                  child: _panel(
-                    'A new adventure begins',
-                    'Explore the practice grounds with arrow keys, WASD or the on-screen controls.\n\nThis early build supports exploration. Battles and saving are coming later.',
-                    [
-                      FilledButton(
-                        onPressed: _startNewGame,
-                        child: const Text('New Game'),
-                      ),
-                    ],
-                  ),
+                  child: _panel('A new adventure begins', widget.introduction, [
+                    FilledButton(
+                      onPressed: _startNewGame,
+                      child: const Text('New Game'),
+                    ),
+                  ]),
                 ),
               if (_controller.mode == AppMode.loading)
                 Positioned.fill(
@@ -226,7 +253,40 @@ class _GameAppState extends State<GameApp> {
                     ),
                   ]),
                 ),
-              if (exploring && _controller.paused)
+              if (battling)
+                Positioned.fill(
+                  child: BattleScreen(
+                    key: ValueKey(_controller.activeBattle!.input.encounterId),
+                    session: _controller.activeBattle!,
+                    pauseSignal: _controller,
+                    title: widget.battleTitle,
+                    names: widget.battleNames,
+                    onCompleted: (result) {
+                      if (_controller.acceptBattleResult(result) &&
+                          _controller.movementEnabled) {
+                        _worldFocus.requestFocus();
+                      }
+                    },
+                  ),
+                ),
+              if (_controller.mode == AppMode.gameOver)
+                Positioned.fill(
+                  child: _panel(
+                    'Party defeated',
+                    'Your journey has ended. Start a new game to try again. Progress is not saved.',
+                    [
+                      FilledButton(
+                        onPressed: _startNewGame,
+                        child: const Text('New Game'),
+                      ),
+                      TextButton(
+                        onPressed: _controller.returnToTitle,
+                        child: const Text('Back to title'),
+                      ),
+                    ],
+                  ),
+                ),
+              if ((exploring || battling) && _controller.paused)
                 Positioned.fill(
                   child: ColoredBox(
                     color: const Color(0xff102027),
@@ -236,7 +296,9 @@ class _GameAppState extends State<GameApp> {
                       [
                         FilledButton(
                           onPressed: _resume,
-                          child: const Text('Continue exploring'),
+                          child: Text(
+                            battling ? 'Continue battle' : 'Continue exploring',
+                          ),
                         ),
                         TextButton(
                           onPressed: _controller.returnToTitle,

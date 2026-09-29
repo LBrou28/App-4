@@ -2,9 +2,12 @@
 
 Flutter RPG prototype with package name `app_4`.
 
-The default app now opens the A2 practice-world shell: New Game, exploration,
-pause/resume and loading recovery. Battles, party menus and saving remain pending.
-See [A2 handoff](docs/a2-handoff.md) for scope, dependencies and review gates.
+The default app opens the connected integration preview: three prototype maps,
+NPC dialogue, one-time chests and a Training battle button using C's existing
+synthetic combat setup. Battles return to the same position or show game over;
+pause also gates battle input/playback. Training escape always succeeds and no
+combat rewards are granted. Random authored encounters, party menus and saving
+remain pending. See [A5 handoff](docs/a5-handoff.md) for limits and review gates.
 
 Includes Android, iOS, web, Windows, macOS, and Linux project files.
 Building each platform requires its corresponding development tools.

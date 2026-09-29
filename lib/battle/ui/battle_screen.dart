@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
 import '../../ui/game_theme.dart';
@@ -15,7 +16,9 @@ class BattleScreen extends StatefulWidget {
     this.names = const {},
     this.title = 'Battle',
     this.eventDelay = const Duration(milliseconds: 250),
+    this.pauseSignal,
   });
+  final ValueListenable<bool>? pauseSignal;
   final BattleSession session;
   final ValueChanged<shared.BattleResult> onCompleted;
   final Map<String, String> names;
@@ -40,13 +43,15 @@ class _BattleScreenState extends State<BattleScreen> {
     _controller = BattleController(
       widget.session,
       eventDelay: widget.eventDelay,
+      pauseSignal: widget.pauseSignal,
     );
   }
 
   @override
   void didUpdateWidget(BattleScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(widget.session, oldWidget.session)) {
+    if (!identical(widget.session, oldWidget.session) ||
+        !identical(widget.pauseSignal, oldWidget.pauseSignal)) {
       _controller.dispose();
       _attach();
     }

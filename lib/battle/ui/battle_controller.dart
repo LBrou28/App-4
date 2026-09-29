@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
@@ -9,7 +11,27 @@ final class BattleController extends ChangeNotifier {
   BattleController(
     this.session, {
     this.eventDelay = const Duration(milliseconds: 250),
-  }) : _snapshot = session.snapshot;
+    this.pauseSignal,
+  }) : _snapshot = session.snapshot {
+    pauseSignal?.addListener(_pauseChanged);
+  }
+  final ValueListenable<bool>? pauseSignal;
+  bool get paused => pauseSignal?.value ?? false;
+  Completer<void>? _resume;
+  void _pauseChanged() {
+    if (!paused) {
+      _resume?.complete();
+      _resume = null;
+    }
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> _waitForResume() async {
+    while (paused && !_disposed) {
+      _resume ??= Completer<void>();
+      await _resume!.future;
+    }
+  }
 
   final BattleSession session;
   final Duration eventDelay;
@@ -33,7 +55,7 @@ final class BattleController extends ChangeNotifier {
       : null;
   shared.BattleResult? get result => busy ? null : session.result;
   bool get canChoose =>
-      !busy && !_returned && session.result == null && !_disposed;
+      !busy && !paused && !_returned && session.result == null && !_disposed;
   bool get canSubmit => canChoose && active == null && !targeting;
 
   void attack() {
@@ -92,11 +114,13 @@ final class BattleController extends ChangeNotifier {
     try {
       final resolved = session.resolve(snapshot.round, List.of(_commands));
       for (final event in resolved.events) {
+        await _waitForResume();
         if (_disposed) return;
         _events.add(event);
         notifyListeners();
         await Future<void>.delayed(eventDelay);
       }
+      await _waitForResume();
       if (_disposed) return;
       _snapshot = resolved.snapshot;
       _commands.clear();
@@ -124,6 +148,7 @@ final class BattleController extends ChangeNotifier {
     notifyListeners();
     try {
       final escaped = await session.flee();
+      await _waitForResume();
       if (!_disposed) {
         message = escaped
             ? null
@@ -140,7 +165,7 @@ final class BattleController extends ChangeNotifier {
   }
 
   shared.BattleResult? takeResult() {
-    if (_disposed || _returned || result == null) return null;
+    if (_disposed || paused || _returned || result == null) return null;
     _returned = true;
     notifyListeners();
     return result;
@@ -149,6 +174,9 @@ final class BattleController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    pauseSignal?.removeListener(_pauseChanged);
+    _resume?.complete();
+    _resume = null;
     super.dispose();
   }
 }

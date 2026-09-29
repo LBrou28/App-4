@@ -1,3 +1,5 @@
+> September 29: [A5 handoff](a5-handoff.md) supersedes this checkpoint: registered training battles and B prototype placements are now connected on A5. Production combat mappings and saves remain pending.
+
 # A handoff for B2/B3
 
 Implemented in the combined A2 + D1 + D4 PR #6, under Jordan's instruction to

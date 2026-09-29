@@ -1,3 +1,5 @@
+> September 29: [A5 handoff](a5-handoff.md) supersedes this checkpoint: registered training battles and B prototype placements are now connected on A5. Production combat mappings and saves remain pending.
+
 # A2 exploration shell — partial implementation
 
 A2 now owns the default app entry point and authoritative WorldHost. It uses B1
