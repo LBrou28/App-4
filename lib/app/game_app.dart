@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/contracts.dart';
+import '../ui/dialogue_panel.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
 
@@ -15,9 +16,55 @@ class GameApp extends StatefulWidget {
 class _GameAppState extends State<GameApp> {
   late final AppController _controller;
   late final AppLifecycleListener _lifecycle;
+  final _navigator = GlobalKey<NavigatorState>();
+  DialogRoute<DialogueDismissal>? _dialogueRoute;
+  int? _shownDialogue;
+  bool _dialogueSyncPending = false;
   MapDefinition? _viewMap;
   Widget? _world;
   final _worldFocus = FocusScopeNode(debugLabel: 'A2 world focus');
+
+  void _scheduleDialogue() {
+    if (_dialogueSyncPending) return;
+    _dialogueSyncPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dialogueSyncPending = false;
+      if (!mounted) return;
+      final active = _controller.activeDialogue;
+      if (active?.token == _shownDialogue) return;
+      final navigator = _navigator.currentState!;
+      final previous = _dialogueRoute;
+      _dialogueRoute = null;
+      _shownDialogue = active?.token;
+      if (previous != null && previous.isActive) {
+        navigator.removeRoute(previous);
+      }
+      if (active == null) return;
+      final definition = active.dialogue;
+      final route = DialogRoute<DialogueDismissal>(
+        context: navigator.context,
+        barrierDismissible: false,
+        builder: (_) => DialoguePanel(
+          request: DialogueRequest(
+            id: definition.id,
+            speaker: definition.speaker,
+            lines: definition.lines,
+          ),
+        ),
+      );
+      _dialogueRoute = route;
+      navigator.push(route).then((_) {
+        if (!mounted || _shownDialogue != active.token) return;
+        _dialogueRoute = null;
+        _shownDialogue = null;
+        _controller.closeDialogue(
+          active.token,
+          expectedRevision: _controller.revision,
+        );
+        if (_controller.movementEnabled) _worldFocus.requestFocus();
+      });
+    });
+  }
 
   void _resume() {
     _controller.setPaused(false);
@@ -36,6 +83,7 @@ class _GameAppState extends State<GameApp> {
   void initState() {
     super.initState();
     _controller = AppController(loadWorld: widget.loadWorld);
+    _controller.addListener(_scheduleDialogue);
     _lifecycle = AppLifecycleListener(
       onInactive: () => _controller.setPaused(true),
       onHide: () => _controller.setPaused(true),
@@ -47,6 +95,7 @@ class _GameAppState extends State<GameApp> {
   void dispose() {
     _lifecycle.dispose();
     _worldFocus.dispose();
+    _controller.removeListener(_scheduleDialogue);
     _controller.dispose();
     super.dispose();
   }
@@ -90,6 +139,7 @@ class _GameAppState extends State<GameApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _navigator,
     title: 'App-4 • Practice world',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
@@ -128,7 +178,8 @@ class _GameAppState extends State<GameApp> {
               if (_world != null)
                 Positioned.fill(
                   child: Offstage(
-                    offstage: !exploring,
+                    offstage:
+                        !exploring && _controller.mode != AppMode.dialogue,
                     child: TickerMode(
                       enabled: exploring && !_controller.paused,
                       child: FocusScope(node: _worldFocus, child: _world!),

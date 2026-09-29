@@ -3,7 +3,7 @@
 A2 now owns the default app entry point and authoritative WorldHost. It uses B1
 PR #5 at 10c7279 and the approved B1-v1 contract from A1 at 2d31206. This branch
 is stacked on codex/b1-exploration. Do not merge it into B1: land dependencies,
-retarget to main and review the resulting A-only diff before merging.
+retarget to main and review the resulting combined A2 + D1 + D4 diff before merging.
 
 ## Available now
 
@@ -32,7 +32,7 @@ No successful-encounter behavior or exactly-once battle-result handling is claim
 This is an explicit capability limit until the C-facing contract is settled.
 
 Title/pause/error screens are temporary A-owned shell scaffolding, not D1 menus.
-No inventory/job/equipment commands, dialogue API, game-over flow, save/load or
+No inventory/job/equipment commands, game-over flow, save/load or
 Continue support is implied. C/D proposals remain provisional. A3 owns persistence.
 New Game uses synthetic fixture party data, not agreed game balance/content.
 
@@ -59,3 +59,32 @@ with real fonts, not a browser screenshot. Refresh via the A2_CAPTURE,
 A2_TEXT_FONT and A2_ICON_FONT defines in test/widget_test.dart.
 
 ![A2 practice-world shell](evidence/a2-world.png)
+
+
+## B2/B3 interaction handoff (September 28)
+
+The combined PR retains Trey's D1/D4 commit 5504df2. Review the whole combined
+scope; the earlier A2-only approval does not cover these additions. No B/C/D
+implementation file is changed by this A follow-up.
+
+See [world operations](world-operations.md) for the implemented, additive
+`WorldInteractionHost` capability: registered named-spawn exits, token-owned
+D dialogue presentation and atomic, exactly-once chest grants. Existing B1
+fake hosts still compile. `test/app/world_operations_test.dart` demonstrates
+registration and real B-view / D-dialogue integration using synthetic maps.
+
+The default practice map has no fabricated exits, NPCs or chest placements.
+Luke can now wire B2/B3 against this host and supply B geometry/reach rules.
+A's D-content adapter uses the authored item quantities and NPC text only for
+explicit matching placements. Dialogue completion does not invent quest rewards.
+Battle adapter, menus/party commands and persistence remain pending.
+
+![Fixture dialogue through A over the real B view](evidence/a2-dialogue.png)
+
+This is a 1280x720 widget-harness capture, using a synthetic conversation and map,
+not evidence that the authored maps or B2 interactions are playable yet.
+
+Latest combined validation: clean analysis, 101 tests passed (one optional D
+image-capture test skipped), release web build passed. Ten new interaction tests
+cover the operations above; the optional A interaction capture was also run and
+visually checked. Windows validation is delegated to GitHub CI.
