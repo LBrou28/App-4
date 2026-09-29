@@ -75,6 +75,18 @@ class AlwaysRoll implements EncounterRandom {
   int nextInt(int max) => 0;
 }
 
+class _MemorySave implements SaveRepository {
+  SaveData? data;
+  @override
+  Future<LoadResult> load() async =>
+      data == null ? SaveMissing() : SaveLoaded(data!);
+  @override
+  Future<WriteResult> save(SaveData value) async {
+    data = value;
+    return SaveWritten();
+  }
+}
+
 void main() {
   test('launch publishes gate/input atomically and rejects stale/unknown/reentrant requests', () async {
     final c = await host();
@@ -334,8 +346,12 @@ void main() {
         });
       }
       final key = GlobalKey();
+      final saves = _MemorySave();
       await tester.pumpWidget(
-        RepaintBoundary(key: key, child: buildIntegrationPreview()),
+        RepaintBoundary(
+          key: key,
+          child: buildIntegrationPreview(saves: saves),
+        ),
       );
       await tester.tap(find.text('New Game'));
       await tester.pump();
@@ -383,6 +399,22 @@ void main() {
       expect(c.mode, AppMode.exploration);
       expect(c.state.position, same(position));
       expect(tester.widget<WorldView>(find.byType(WorldView)).host, same(c));
+      await tester.tap(find.text('Pause'));
+      await tester.pump();
+      await tester.tap(find.text('Save game'));
+      await tester.pump();
+      await tester.pump();
+      expect(saves.data?.state.position, same(c.state.position));
+      await tester.tap(find.text('End session'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Continue'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pump();
+      await tester.pump();
+      expect(c.mode, AppMode.exploration);
+      expect(c.state.position.x, position.x);
+      expect(c.state.position.y, position.y);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

@@ -6,8 +6,10 @@ The default app opens the connected integration preview: three prototype maps,
 NPC dialogue, one-time chests and a Training battle button using C's existing
 synthetic combat setup. Battles return to the same position or show game over;
 pause also gates battle input/playback. Training escape always succeeds and no
-combat rewards are granted. Random authored encounters, party menus and saving
-remain pending. See [A5 handoff](docs/a5-handoff.md) for limits and review gates.
+combat rewards are granted. The pause screen saves one local slot; Continue
+restores world, party and chest state after validation. Random authored
+encounters and party menus remain pending. See [A5 handoff](docs/a5-handoff.md)
+for limits and review gates.
 
 Includes Android, iOS, web, Windows, macOS, and Linux project files.
 Building each platform requires its corresponding development tools.

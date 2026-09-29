@@ -8,6 +8,7 @@ import '../core/contracts.dart';
 import '../ui/content/demo_content.dart';
 import '../world/interaction_world.dart';
 import '../world/world_view.dart';
+import '../save/local_save_repository.dart';
 import 'game_app.dart';
 
 /// Reuses Joseph's training roster/stats, not a new production balance source.
@@ -33,11 +34,12 @@ BattleSession createTrainingBattle(BattleInput input) {
 }
 
 /// Connected B/A/C/D preview. Authored encounter tables are still a C/B handoff.
-Widget buildIntegrationPreview() {
+Widget buildIntegrationPreview({SaveRepository? saves}) {
   late InteractionWorld world;
   return GameApp(
     title: 'App-4 • Integration preview',
-    introduction: 'Explore three connected areas. Face an NPC or chest and press E or Interact.\n\nTraining battle uses temporary combat stats, grants no rewards and always allows escape. Progress is not saved.',
+    introduction: 'Explore three connected areas. Face an NPC or chest and press E or Interact.\n\nTraining battle uses temporary combat stats and grants no combat rewards. Pause while exploring to save your journey.',
+    saves: saves ?? LocalSaveRepository(),
     battles: {'fixture.battle': createTrainingBattle},
     trainingEncounterId: 'fixture.battle',
     battleTitle: 'Training encounter',

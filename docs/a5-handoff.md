@@ -19,7 +19,9 @@ Training battle opens Joseph's C2 screen and C1 engine. It reuses his demo
 roster/stats and guaranteed training escape. Attack/Defend rounds update HP;
 Victory/Escaped -> Continue returns to the exact launch position. Defeat ->
 Continue reaches A's game-over/New Game/title flow. No battle rewards, healing,
-quest flags or item costs are invented. Progress is not saved.
+quest flags or item costs are invented. Pause during exploration to save one
+local slot; Continue restores the saved world, party, inventory, gold, flags and
+opened chests. New Game does not replace the slot until the player saves.
 
 The default preview uses explicit Training battle rather than fabricated random
 encounter tables for D's maps. An integration test connects B's real accepted
@@ -45,6 +47,16 @@ captured world position/quest flags, clears the session before notifying, and
 selects exploration or game over. C2 preserves non-HP party fields, inventory
 and gold; future reward/progression adapters require their own review.
 
+`lib/save/` now stores a strict schema-1 JSON envelope through
+`shared_preferences` on web and desktop. A saves only during paused exploration,
+holding world writes until the one-slot write finishes. Saving does not advance
+the runtime revision. Continue rechecks content version, party identity,
+registered item/job/flag/chest IDs and B's full-footprint collision against a
+freshly loaded world before one atomic state publication. Missing, unreadable,
+unsupported and unavailable saves never change the live state. The save contains
+no encounter, input, listener, pause state or revision. A successful Continue
+advances the current host revision so old movement requests stay stale.
+
 ## Pause adjustment for Joseph to review
 
 Two C UI files gain an optional `ValueListenable<bool> pauseSignal` with a null,
@@ -61,13 +73,16 @@ DTOs are changed by the A commit.
 
 ## Validation
 
-- Full combined suite: 150 tests passed; one optional D image test skipped.
+- Full combined suite: 153 tests passed; one optional D image test skipped.
 - Analysis clean; default release web build passed. Browser smoke check confirmed
   New Game, training launch, pause/resume, escape and return to Bellwether at
   the identical position (4.5, 6.5).
 - Nine new tests cover atomic launch, rejected factories/stale requests,
   correlated once-only results, victory/defeat/escape, delayed old results,
   B movement-to-C battle/cooldown, pause/disposal and the default UI loop.
+- Three save tests cover strict round-trip data, incompatible/corrupt rejection,
+  and chest/battle progress surviving Continue. The default UI test now also
+  exercises Save game, End session and Continue.
 - 1280x720 widget evidence below; inherited narrow-layout tests also pass.
 - Windows is checked by GitHub CI after push; no local Windows build claimed.
 
@@ -81,9 +96,11 @@ DTOs are changed by the A commit.
   hero/job/equipment stats, encounter rosters and C3 flee/C4 reward rules.
   C2's adapter is connected; the earlier request to build one is obsolete.
 - Trey: dialogue/content are connected through B's maps. Party commands need
-  C4 and Continue needs A3. Review combined UI when ready.
-- Jordan/A: replace training registration when those handoffs arrive. A3 still
-  needs agreed persistent content/stat semantics; this preview does not save.
+  C4. Review combined UI when ready.
+- Jordan/A: replace training registration when those handoffs arrive. The
+  one-slot save path works with the current fixture state and draft content
+  version; production stat/content changes require a migration decision.
 
-A2/A5 remain partial. Cross-reload chest protection awaits A3. Nothing is marked
-Done or merged to main by this work.
+A2/A5 remain integration review candidates pending the production B/C content
+handoffs. Cross-reload chest protection is implemented. Nothing is marked Done
+or merged to main by this work.

@@ -12,11 +12,15 @@ final class WorldSession {
     required this.initialState,
     required this.isClear,
     WorldOperations? operations,
+    this.contentVersion,
+    this.validateSavedState,
   }) : operations = operations ?? WorldOperations();
   final WorldOperations operations;
   final MapDefinition map;
   final GameState initialState;
   final bool Function(WorldPosition) isClear;
+  final String? contentVersion;
+  final bool Function(GameState)? validateSavedState;
 }
 
 typedef WorldLoader = Future<WorldSession> Function();
@@ -28,7 +32,9 @@ class AppController extends ChangeNotifier
   AppController({
     required this.loadWorld,
     Map<String, BattleFactory> battles = const {},
+    this.saves,
   }) : _battles = Map.unmodifiable(battles);
+  final SaveRepository? saves;
   final Map<String, BattleFactory> _battles;
   BattleSession? _battle;
   BattleSession? get activeBattle => _battle;
@@ -42,6 +48,7 @@ class AppController extends ChangeNotifier
   ActiveDialogue? _dialogue;
   int _dialogueSequence = 0;
   bool _checking = false;
+  bool _saving = false;
   ActiveDialogue? get activeDialogue => _dialogue;
   AppMode _mode = AppMode.title;
   int _revision = 0;
@@ -62,7 +69,78 @@ class AppController extends ChangeNotifier
   @override
   bool get movementEnabled =>
       !_disposed && _mode == AppMode.exploration && !_paused;
-  bool get _canWrite => !_disposed && !_notifying && !_checking;
+  bool get _canWrite => !_disposed && !_notifying && !_checking && !_saving;
+
+  Future<LoadResult> readSave() async =>
+      await saves?.load() ?? SaveUnreadable(SaveReadFailure.unavailable);
+
+  /// Saves one coherent snapshot while world writes are gated. Saving itself
+  /// never changes the state or revision.
+  Future<WriteResult> saveCurrent() async {
+    final repository = saves;
+    final version = _session?.contentVersion;
+    if (!_canWrite ||
+        _mode != AppMode.exploration ||
+        !_paused ||
+        repository == null ||
+        version == null) {
+      return SaveWriteFailed('Saving is unavailable right now.');
+    }
+    _saving = true;
+    try {
+      return await repository.save(
+        SaveData(contentVersion: version, state: _state),
+      );
+    } finally {
+      _saving = false;
+    }
+  }
+
+  /// Restores only a compatible state on a currently valid world. A rejected
+  /// save leaves the active state, revision and mode unchanged.
+  Future<LoadResult> continueGame() async {
+    if (!_canWrite || _mode != AppMode.title || saves == null) {
+      return SaveUnreadable(SaveReadFailure.unavailable);
+    }
+    _saving = true;
+    try {
+      final loadedSave = await saves!.load();
+      if (loadedSave is! SaveLoaded || _disposed) return loadedSave;
+      final loadedWorld = await loadWorld();
+      if (_disposed) return SaveUnreadable(SaveReadFailure.unavailable);
+      if (loadedSave.data.contentVersion != loadedWorld.contentVersion) {
+        return SaveUnreadable(SaveReadFailure.unsupportedVersion);
+      }
+      final restored = loadedSave.data.state;
+      final area = restored.position.mapId == loadedWorld.map.id
+          ? WorldArea(map: loadedWorld.map, isClear: loadedWorld.isClear)
+          : loadedWorld.operations.areas[restored.position.mapId];
+      if (area == null ||
+          !_check(() => area.isClear(restored.position)) ||
+          restored.party.length != loadedWorld.initialState.party.length ||
+          !restored.party.asMap().entries.every(
+            (entry) =>
+                entry.value.id == loadedWorld.initialState.party[entry.key].id,
+          ) ||
+          loadedWorld.validateSavedState?.call(restored) == false) {
+        return SaveUnreadable(SaveReadFailure.corrupt);
+      }
+      _session = loadedWorld;
+      _area = area;
+      _state = restored;
+      _dialogue = null;
+      _battle = null;
+      _paused = false;
+      _error = null;
+      _mode = AppMode.exploration;
+      _publish();
+      return loadedSave;
+    } catch (_) {
+      return SaveUnreadable(SaveReadFailure.corrupt);
+    } finally {
+      _saving = false;
+    }
+  }
 
   void _publish() {
     _revision++;
@@ -291,13 +369,20 @@ class AppController extends ChangeNotifier
         result.baseRevision != session.input.baseRevision) {
       return false;
     }
-    _state = GameState(
+    final next = GameState(
       position: session.input.state.position,
       party: result.party,
       inventory: result.inventory,
       gold: result.gold,
       quests: session.input.state.quests,
     );
+    if (!result.party.asMap().entries.every(
+          (entry) => entry.value.id == session.input.state.party[entry.key].id,
+        ) ||
+        !_check(() => _session?.validateSavedState?.call(next) ?? true)) {
+      return false;
+    }
+    _state = next;
     _battle =
         null; // Clear before publication: duplicate callbacks cannot commit.
     _mode = result.outcome == BattleOutcome.defeat
