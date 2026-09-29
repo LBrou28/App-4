@@ -9,6 +9,7 @@ import 'world_camera.dart';
 import 'world_controller.dart';
 import 'world_map.dart';
 import 'world_encounters.dart';
+import 'world_interactions.dart';
 
 /// Bind the map once; A2 supplies its stable host/notifier through the shared typedef.
 WorldViewBuilder worldViewBuilder(MapDefinition map) =>
@@ -22,11 +23,15 @@ class WorldView extends StatefulWidget {
     required this.host,
     required this.changes,
     this.encounters,
+    this.interactions,
+    this.mapName,
   });
   final MapDefinition map;
   final WorldHost host;
   final Listenable changes;
   final EncounterStepper? encounters;
+  final WorldInteractions? interactions;
+  final String? mapName;
 
   @override
   State<WorldView> createState() => _WorldViewState();
@@ -69,6 +74,7 @@ class _WorldViewState extends State<WorldView>
       host: widget.host,
       collision: WorldCollision(widget.map),
       encounters: widget.encounters,
+      interactions: widget.interactions,
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
@@ -101,7 +107,8 @@ class _WorldViewState extends State<WorldView>
     if (oldWidget.host != widget.host ||
         oldWidget.changes != widget.changes ||
         oldWidget.map != widget.map ||
-        oldWidget.encounters != widget.encounters) {
+        oldWidget.encounters != widget.encounters ||
+        oldWidget.interactions != widget.interactions) {
       oldWidget.changes.removeListener(_hostChanged);
       _resetInput();
       _attach();
@@ -119,11 +126,27 @@ class _WorldViewState extends State<WorldView>
   }
 
   KeyEventResult _key(FocusNode node, KeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.keyE &&
+        widget.interactions != null) {
+      if (event is KeyDownEvent) _interact();
+      return KeyEventResult.handled;
+    }
     final direction = _keys[event.logicalKey];
     if (direction == null) return KeyEventResult.ignored;
-    if (event is KeyDownEvent) _controller.press(event.physicalKey, direction);
+    if (event is KeyDownEvent) _press(event.physicalKey, direction);
     if (event is KeyUpEvent) _controller.release(event.physicalKey);
     return KeyEventResult.handled;
+  }
+
+  void _press(Object source, WalkDirection direction) {
+    _controller.press(source, direction);
+    setState(() {}); // Facing changes even when a solid target blocks movement.
+  }
+
+  void _interact() {
+    _focus.requestFocus();
+    _controller.interact();
+    setState(() {});
   }
 
   Widget _directionButton(WalkDirection direction, IconData icon) => Semantics(
@@ -131,7 +154,7 @@ class _WorldViewState extends State<WorldView>
     button: true,
     onTap: () {
       _focus.requestFocus();
-      _controller.press('accessible', direction);
+      _press('accessible', direction);
       _controller.advance(.1);
       _controller.release('accessible');
     },
@@ -140,7 +163,7 @@ class _WorldViewState extends State<WorldView>
       onPointerDown: (event) {
         if (event.buttons != kPrimaryButton) return;
         _focus.requestFocus();
-        _controller.press(event.pointer, direction);
+        _press(event.pointer, direction);
       },
       onPointerUp: (event) => _controller.release(event.pointer),
       onPointerCancel: (event) => _controller.release(event.pointer),
@@ -171,6 +194,18 @@ class _WorldViewState extends State<WorldView>
       },
       child: Column(
         children: [
+          if (widget.interactions != null)
+            Container(
+              width: double.infinity,
+              color: const Color(0xff14272f),
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests\n'
+                '${_controller.interactionMessage ?? 'Blue: people · Gold: chest · Teal: walk onto an exit'}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
           Expanded(
             child: Listener(
               onPointerDown: (_) => _focus.requestFocus(),
@@ -187,6 +222,9 @@ class _WorldViewState extends State<WorldView>
                           map: widget.map,
                           position: position,
                           showPlayer: error == null,
+                          targets: widget.interactions?.targets ?? const [],
+                          openedChests: widget.host.state.quests.openedChestIds,
+                          facing: _controller.facing,
                         ),
                       ),
                     ),
@@ -228,6 +266,19 @@ class _WorldViewState extends State<WorldView>
                     ),
                   ),
                 ),
+                if (widget.interactions != null)
+                  Flexible(
+                    child: FilledButton(
+                      onPressed:
+                          widget.host.movementEnabled &&
+                              _controller.interactionTarget != null
+                          ? _interact
+                          : null,
+                      child: Text(
+                        _controller.interactionTarget?.label ?? 'Interact',
+                      ),
+                    ),
+                  ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -265,10 +316,16 @@ class WorldPainter extends CustomPainter {
     required this.map,
     required this.position,
     this.showPlayer = true,
+    this.targets = const [],
+    this.openedChests = const {},
+    this.facing = WalkDirection.down,
   });
   final MapDefinition map;
   final WorldPosition position;
   final bool showPlayer;
+  final List<WorldTarget> targets;
+  final Set<String> openedChests;
+  final WalkDirection facing;
   static const tileSize = 48.0;
 
   @override
@@ -323,6 +380,43 @@ class WorldPainter extends CustomPainter {
         }
       }
     }
+    for (final target in targets.where((t) => t.mapId == map.id)) {
+      final center = Offset(
+        (target.x + .5) * tileSize,
+        (target.y + .5) * tileSize,
+      );
+      final opened = openedChests.contains(target.id);
+      final color = switch (target.kind) {
+        WorldTargetKind.npc => const Color(0xff6ab9ed),
+        WorldTargetKind.chest =>
+          opened ? const Color(0xff828b87) : const Color(0xffe7ba58),
+        WorldTargetKind.exit => const Color(0xff45c4b0),
+      };
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: 34, height: 34),
+          const Radius.circular(6),
+        ),
+        Paint()..color = color,
+      );
+      final text = TextPainter(
+        text: TextSpan(
+          text: switch (target.kind) {
+            WorldTargetKind.npc => 'N',
+            WorldTargetKind.chest => opened ? '-' : 'C',
+            WorldTargetKind.exit => '>',
+          },
+          style: const TextStyle(
+            color: Color(0xff14272f),
+            fontFamily: 'Roboto',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
+    }
     final spawn = map.spawns.values.first;
     canvas.drawCircle(
       Offset(spawn.x * tileSize, spawn.y * tileSize),
@@ -367,6 +461,15 @@ class WorldPainter extends CustomPainter {
         2,
         Paint()..color = const Color(0xff25353a),
       );
+      if (targets.isNotEmpty) {
+        final direction = switch (facing) {
+          WalkDirection.up => const Offset(0, -19),
+          WalkDirection.down => const Offset(0, 19),
+          WalkDirection.left => const Offset(-19, 0),
+          WalkDirection.right => const Offset(19, 0),
+        };
+        canvas.drawCircle(center + direction, 3, Paint()..color = Colors.white);
+      }
     }
     canvas.restore();
   }
@@ -375,5 +478,8 @@ class WorldPainter extends CustomPainter {
   bool shouldRepaint(covariant WorldPainter oldDelegate) =>
       oldDelegate.map != map ||
       oldDelegate.position != position ||
-      oldDelegate.showPlayer != showPlayer;
+      oldDelegate.showPlayer != showPlayer ||
+      oldDelegate.targets != targets ||
+      oldDelegate.openedChests != openedChests ||
+      oldDelegate.facing != facing;
 }
