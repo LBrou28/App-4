@@ -65,6 +65,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
           host: host,
           changes: changes,
           interactions: world.targets,
+          landmarks: world.landmarks,
           mapName: world.names[map.id],
         ),
   );

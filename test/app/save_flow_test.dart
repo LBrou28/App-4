@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app_4/app/app_controller.dart';
 import 'package:app_4/app/world_operations.dart';
 import 'package:app_4/battle/battle.dart' as combat;
@@ -5,6 +7,8 @@ import 'package:app_4/battle/battle_session.dart';
 import 'package:app_4/core/contracts.dart';
 import 'package:app_4/core/fixtures/contract_fixture.dart';
 import 'package:app_4/save/save_codec.dart';
+import 'package:app_4/ui/content/demo_content.dart';
+import 'package:app_4/world/interaction_world.dart';
 import 'package:app_4/world/prototype_map.dart';
 import 'package:app_4/world/world_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,6 +72,81 @@ BattleSession battle(BattleInput input) => BattleSession(
 );
 
 void main() {
+  test('B4 island route survives save and Continue in the Cistern', () async {
+    final content = DemoContent.decode(
+      File('assets/data/lantern_wake.json').readAsStringSync(),
+    );
+    final world = InteractionWorld(content);
+    final saves = MemorySave();
+    final c = AppController(
+      loadWorld: () async => world.session(),
+      saves: saves,
+    );
+    addTearDown(c.dispose);
+    await c.newGame();
+    expect(c.state.position, world.maps['map.bellwether']!.spawns['entry']);
+
+    void walkToExit(String id) {
+      final exit = world.targets.targets.singleWhere(
+        (target) => target.id == id,
+      );
+      final map = world.maps[exit.mapId]!;
+      final collision = WorldCollision(map);
+      final start = (c.state.position.x.floor(), c.state.position.y.floor());
+      final goal = (exit.x, exit.y);
+      final pending = <(int, int)>[start];
+      final previous = <(int, int), (int, int)?>{start: null};
+      for (var i = 0; i < pending.length && !previous.containsKey(goal); i++) {
+        final current = pending[i];
+        for (final (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)]) {
+          final next = (current.$1 + dx, current.$2 + dy);
+          if (previous.containsKey(next) ||
+              !collision.isClear(
+                WorldPosition(
+                  mapId: exit.mapId,
+                  x: next.$1 + .5,
+                  y: next.$2 + .5,
+                ),
+              )) {
+            continue;
+          }
+          previous[next] = current;
+          pending.add(next);
+        }
+      }
+      expect(previous, contains(goal), reason: id);
+      final route = <(int, int)>[];
+      for (var tile = goal; tile != start; tile = previous[tile]!) {
+        route.add(tile);
+      }
+      for (final tile in route.reversed) {
+        expect(
+          c.updatePosition(
+            WorldPosition(mapId: exit.mapId, x: tile.$1 + .5, y: tile.$2 + .5),
+            expectedRevision: c.revision,
+          ),
+          isTrue,
+        );
+      }
+      expect(c.useMapExit(id, expectedRevision: c.revision), isTrue);
+    }
+
+    walkToExit('exit.harbor_to_causeway');
+    expect(c.state.position.mapId, 'map.salt_path');
+    walkToExit('exit.causeway_to_cistern');
+    expect(c.state.position.mapId, 'map.tide_cistern');
+    final savedPosition = c.state.position;
+    c.setPaused(true);
+    expect(await c.saveCurrent(), isA<SaveWritten>());
+    c.returnToTitle();
+    expect(await c.continueGame(), isA<SaveLoaded>());
+    expect(c.state.position.mapId, 'map.tide_cistern');
+    expect(c.state.position.x, savedPosition.x);
+    expect(c.state.position.y, savedPosition.y);
+    walkToExit('exit.cistern_to_causeway');
+    expect(c.state.position.mapId, 'map.salt_path');
+  });
+
   test(
     'codec round trips the entire state and rejects bad schema or shape',
     () {

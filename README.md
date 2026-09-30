@@ -2,7 +2,7 @@
 
 Flutter RPG prototype with package name `app_4`.
 
-The default app opens the connected integration preview: three prototype maps,
+The default app opens the connected integration preview: three authored maps,
 NPC dialogue, one-time chests and a Training battle button using C's existing
 synthetic combat setup. Battles return to the same position or show game over;
 pause also gates battle input/playback. Training escape always succeeds and no

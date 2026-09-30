@@ -5,15 +5,16 @@ Trello: https://trello.com/c/Yh3Faz3c
 Combines B2/B3 PR #9 at `273749b` and C2 PR #10 at `de2bc06`, sharing
 A2/D1/D4 PR #6 at `75d8d25`. C2 also contains C1 PR #7. This is a draft
 integration checkpoint, not approval or merging of those PRs. Do not merge
-into a dependency feature branch. Land/review dependencies, retarget main,
-and review the remaining integration diff.
+into a dependency feature branch. A5 now sits on B4's authored-map branch;
+land/review dependencies, retarget main, and review the remaining integration diff.
 
 ## Playable now
 
 Run `flutter run -d chrome` or serve the release web build. New Game loads
-Luke's connected Bellwether, Causeway and Cistern prototype maps. Face a target
+Luke's connected Bellwether, Causeway and Cistern authored maps. Face a target
 and use E/Interact for Trey's dialogue or the authored supply chest. Walk onto
 marked exits to travel. A commits chest rewards and opened IDs atomically.
+The normal integration view displays B4's harbor, causeway and cistern landmarks.
 
 Training battle opens Joseph's C2 screen and C1 engine. It reuses his demo
 roster/stats and guaranteed training escape. Attack/Defend rounds update HP;
@@ -73,10 +74,12 @@ DTOs are changed by the A commit.
 
 ## Validation
 
-- Full combined suite: 153 tests passed; one optional D image test skipped.
-- Analysis clean; default release web build passed. Browser smoke check confirmed
-  New Game, training launch, pause/resume, escape and return to Bellwether at
-  the identical position (4.5, 6.5).
+- Combined B4+A5 validation: 155 passing tests, one optional image test skipped;
+  analysis clean and release web build passed. A route test walks Bellwether →
+  Causeway → Cistern, saves, restores in the Cistern, and takes the return exit.
+- The earlier A5 browser smoke check confirmed New Game, training launch,
+  pause/resume, escape and return to the identical Bellwether position on the
+  old map. B4's authored Bellwether starts at (19.5, 8.5).
 - Nine new tests cover atomic launch, rejected factories/stale requests,
   correlated once-only results, victory/defeat/escape, delayed old results,
   B movement-to-C battle/cooldown, pause/disposal and the default UI loop.
