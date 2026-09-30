@@ -81,7 +81,7 @@ BattleSession createLanternProductionBattle(
       combat.Combatant(
         // Keep the authored definition ID for pattern lookup, but give this
         // encounter instance its own ID for result correlation.
-        id: '${enemy.id}@${input.encounterId}',
+        id: '${enemy.id}.instance${input.seed}',
         side: combat.BattleSide.enemies,
         hp: stats.hp,
         maxHp: stats.hp,

@@ -230,7 +230,7 @@ void main() {
       session.rules.items.keys,
       containsAll(['item.salves', 'item.ether', 'item.revival']),
     );
-    expect(session.snapshot.combatants.last.id, 'enemy.brine_mite@encounter.test');
+    expect(session.snapshot.combatants.last.id, 'enemy.brine_mite.instance1');
     expect(session.snapshot.combatants.last.isBoss, isFalse);
     expect(session.snapshot.combatants.last.pattern, isNotEmpty);
   });
