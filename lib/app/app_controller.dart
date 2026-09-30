@@ -55,6 +55,8 @@ class AppController extends ChangeNotifier
   int _revision = 0;
   int _loadGeneration = 0;
   bool _paused = false;
+  bool _musicEnabled = true;
+  bool _effectsEnabled = true;
   bool _disposed = false;
   bool _notifying = false;
   String? _error;
@@ -65,6 +67,8 @@ class AppController extends ChangeNotifier
   int get revision => _revision;
   AppMode get mode => _mode;
   bool get paused => _paused;
+  bool get musicEnabled => _musicEnabled;
+  bool get effectsEnabled => _effectsEnabled;
   String? get error => _error;
   MapDefinition? get map => _area?.map;
   @override
@@ -193,6 +197,22 @@ class AppController extends ChangeNotifier
       return false;
     }
     _paused = value;
+    _publish();
+    return true;
+  }
+
+  /// Presentation settings deliberately live outside the save state. They must
+  /// remain usable while the game simulation is paused.
+  bool setMusicEnabled(bool value) {
+    if (!_canWrite || value == _musicEnabled) return false;
+    _musicEnabled = value;
+    _publish();
+    return true;
+  }
+
+  bool setEffectsEnabled(bool value) {
+    if (!_canWrite || value == _effectsEnabled) return false;
+    _effectsEnabled = value;
     _publish();
     return true;
   }
