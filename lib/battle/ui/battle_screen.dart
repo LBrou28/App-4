@@ -31,6 +31,7 @@ class BattleScreen extends StatefulWidget {
 
 class _BattleScreenState extends State<BattleScreen> {
   late BattleController _controller;
+  String? _effectMenu;
   String _name(String id) => widget.names[id] ?? id;
 
   @override
@@ -53,6 +54,7 @@ class _BattleScreenState extends State<BattleScreen> {
     if (!identical(widget.session, oldWidget.session) ||
         !identical(widget.pauseSignal, oldWidget.pauseSignal)) {
       _controller.dispose();
+      _effectMenu = null;
       _attach();
     }
   }
@@ -150,7 +152,12 @@ class _BattleScreenState extends State<BattleScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _controller.targeting ? 'Choose an enemy' : 'Enemy formation',
+                _controller.targeting &&
+                        (_controller.pendingEffect == null ||
+                            _controller.pendingEffect!.kind ==
+                                EffectKind.damage)
+                    ? 'Choose an enemy'
+                    : 'Enemy formation',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 20),
@@ -164,10 +171,7 @@ class _BattleScreenState extends State<BattleScreen> {
                       width: 180,
                       child: OutlinedButton(
                         key: ValueKey('target-${enemy.id}'),
-                        onPressed:
-                            _controller.canChoose &&
-                                _controller.targeting &&
-                                enemy.isAlive
+                        onPressed: _controller.validTarget(enemy)
                             ? () => _controller.target(enemy.id)
                             : null,
                         style: OutlinedButton.styleFrom(
@@ -251,9 +255,6 @@ class _BattleScreenState extends State<BattleScreen> {
   );
 
   Widget _heroCard(BuildContext context, Combatant hero) {
-    final member = widget.session.input.state.party.firstWhere(
-      (p) => p.id == hero.id,
-    );
     final selection = _controller.commands
         .where((c) => c.actorId == hero.id)
         .firstOrNull;
@@ -285,7 +286,7 @@ class _BattleScreenState extends State<BattleScreen> {
           const SizedBox(height: 8),
           Text('HP ${hero.hp} / ${hero.maxHp}'),
           Text(
-            'MP ${member.mp} / ${member.maxMp}',
+            'MP ${hero.mp} / ${hero.maxMp}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
@@ -295,12 +296,22 @@ class _BattleScreenState extends State<BattleScreen> {
                 : selection != null
                 ? selection.action == BattleAction.defend
                       ? 'Defend'
-                      : 'Attack → ${_name(selection.targetId!)}'
+                      : '${selection.action == BattleAction.attack ? 'Attack' : (widget.session.rules.spells[selection.effectId] ?? widget.session.rules.items[selection.effectId])!.name} → ${_name(selection.targetId!)}'
                 : active
                 ? 'Choosing command'
                 : 'Awaiting command',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (_controller.targeting &&
+              _controller.pendingEffect != null &&
+              _controller.pendingEffect!.kind != EffectKind.damage)
+            FilledButton(
+              key: ValueKey('target-${hero.id}'),
+              onPressed: _controller.validTarget(hero)
+                  ? () => _controller.target(hero.id)
+                  : null,
+              child: Text('Target ${_name(hero.id)}'),
+            ),
           TextButton(
             key: ValueKey('edit-${hero.id}'),
             onPressed: _controller.canChoose && selection != null
@@ -355,7 +366,14 @@ class _BattleScreenState extends State<BattleScreen> {
             )
           else ...[
             if (_controller.targeting)
-              const Text('Select a living enemy in the formation.'),
+              Text(
+                _controller.pendingEffect?.kind == EffectKind.revive
+                    ? 'Select a knocked-out ally.'
+                    : _controller.pendingEffect != null &&
+                          _controller.pendingEffect!.kind != EffectKind.damage
+                    ? 'Select a living ally.'
+                    : 'Select a living enemy in the formation.',
+              ),
             if (_controller.busy) const LinearProgressIndicator(),
             const SizedBox(height: 8),
             Wrap(
@@ -382,6 +400,35 @@ class _BattleScreenState extends State<BattleScreen> {
                       : null,
                   child: const Text('Defend'),
                 ),
+                OutlinedButton(
+                  key: const ValueKey('magic'),
+                  onPressed:
+                      _controller.canChoose &&
+                          !_controller.targeting &&
+                          (_controller.active?.spellIds.isNotEmpty ?? false)
+                      ? () => setState(
+                          () => _effectMenu = _effectMenu == 'magic'
+                              ? null
+                              : 'magic',
+                        )
+                      : null,
+                  child: const Text('Magic'),
+                ),
+                OutlinedButton(
+                  key: const ValueKey('items'),
+                  onPressed:
+                      _controller.canChoose &&
+                          !_controller.targeting &&
+                          _controller.active != null &&
+                          widget.session.rules.items.isNotEmpty
+                      ? () => setState(
+                          () => _effectMenu = _effectMenu == 'items'
+                              ? null
+                              : 'items',
+                        )
+                      : null,
+                  child: const Text('Items'),
+                ),
                 TextButton(
                   key: const ValueKey('back'),
                   onPressed:
@@ -394,6 +441,40 @@ class _BattleScreenState extends State<BattleScreen> {
                 ),
               ],
             ),
+            if (_effectMenu != null &&
+                !_controller.targeting &&
+                _controller.active != null)
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final effect
+                      in (_effectMenu == 'items'
+                          ? widget.session.rules.items.values
+                          : widget.session.rules.spells.values.where(
+                              (e) =>
+                                  _controller.active!.spellIds.contains(e.id),
+                            )))
+                    TextButton(
+                      key: ValueKey('effect-${effect.id}'),
+                      onPressed:
+                          _controller.canUse(
+                            effect,
+                            item: _effectMenu == 'items',
+                          )
+                          ? () {
+                              _controller.chooseEffect(
+                                effect,
+                                item: _effectMenu == 'items',
+                              );
+                              setState(() => _effectMenu = null);
+                            }
+                          : null,
+                      child: Text(
+                        '${effect.name} (${_effectMenu == 'items' ? '${_controller.availableItems(effect.id)} left' : '${effect.mpCost} MP'})',
+                      ),
+                    ),
+                ],
+              ),
             const SizedBox(height: 12),
             FilledButton(
               key: const ValueKey('submit-round'),
@@ -403,15 +484,16 @@ class _BattleScreenState extends State<BattleScreen> {
             const SizedBox(height: 8),
             TextButton(
               key: const ValueKey('flee'),
-              onPressed:
-                  _controller.canChoose && widget.session.fleePolicy != null
+              onPressed: _controller.canChoose && widget.session.canFlee
                   ? _controller.flee
                   : null,
               child: const Text('Flee'),
             ),
-            if (widget.session.fleePolicy == null)
+            if (!widget.session.canFlee)
               Text(
-                'Escape is unavailable in this encounter.',
+                widget.session.isBoss
+                    ? 'Boss encounter: escape is disabled.'
+                    : 'Escape is unavailable in this encounter.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
           ],
@@ -438,6 +520,13 @@ class _BattleScreenState extends State<BattleScreen> {
                           child: Text(switch (event.kind) {
                             BattleEventKind.attack =>
                               '${_name(event.actorId)} → ${_name(event.targetId!)}: ${event.damage} damage',
+                            BattleEventKind.spell || BattleEventKind.item =>
+                              '${_name(event.actorId)} uses ${(widget.session.rules.spells[event.effectId] ?? widget.session.rules.items[event.effectId])!.name} → ${_name(event.targetId!)}: ${event.damage > 0 ? '${event.damage} damage' : '${event.restored} restored'}',
+                            BattleEventKind.skippedTarget =>
+                              '${_name(event.actorId)}: target unavailable; no cost.',
+                            BattleEventKind.fled => 'The party escaped.',
+                            BattleEventKind.fleeFailed =>
+                              'Escape failed. Enemies act.',
                             BattleEventKind.defend =>
                               '${_name(event.actorId)} defends.',
                             BattleEventKind.skippedKnockout =>
