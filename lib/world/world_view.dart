@@ -430,6 +430,7 @@ class WorldPainter extends CustomPainter {
       final opened = openedChests.contains(target.id);
       final color = switch (target.kind) {
         WorldTargetKind.npc => const Color(0xff6ab9ed),
+        WorldTargetKind.quest => const Color(0xffc68bef),
         WorldTargetKind.chest =>
           opened ? const Color(0xff828b87) : const Color(0xffe7ba58),
         WorldTargetKind.exit => const Color(0xff45c4b0),
@@ -445,6 +446,7 @@ class WorldPainter extends CustomPainter {
         text: TextSpan(
           text: switch (target.kind) {
             WorldTargetKind.npc => 'N',
+            WorldTargetKind.quest => '!',
             WorldTargetKind.chest => opened ? '-' : 'C',
             WorldTargetKind.exit => '>',
           },
