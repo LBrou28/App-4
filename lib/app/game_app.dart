@@ -282,8 +282,9 @@ class _GameAppState extends State<GameApp> {
   );
 
   Widget _onboardingCard(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      child: Align(
+    child: ListView(
+      children: [
+        Align(
       alignment: Alignment.topCenter,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -358,8 +359,8 @@ class _GameAppState extends State<GameApp> {
             ),
           ),
         ),
-      ),
-    ),
+        ),
+      ],
     ),
   );
 
