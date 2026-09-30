@@ -38,6 +38,10 @@ void main() {
       await tester.tap(find.text('New Game'));
       await tester.pump();
       await tester.pump();
+      expect(find.text('Welcome to Bellwether'), findsOneWidget);
+      expect(find.text('Start exploring'), findsOneWidget);
+      await tester.tap(find.text('Start exploring'));
+      await tester.pump();
       final view = tester.widget<WorldView>(find.byType(WorldView));
       final mounted = tester.state(find.byType(WorldView));
       final host = view.host;
@@ -118,6 +122,8 @@ void main() {
       await tester.tap(find.text('New Game'));
       await tester.pump();
       await tester.pump();
+      await tester.tap(find.text('Start exploring'));
+      await tester.pump();
       if (const bool.fromEnvironment('A2_CAPTURE')) {
         final boundary =
             boundaryKey.currentContext!.findRenderObject()!
@@ -146,6 +152,29 @@ void main() {
       expect(host.movementEnabled, isTrue);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'D5 onboarding is readable and dismissible on a narrow viewport',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(480, 640);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        GameApp(loadWorld: () async => session(), buildWorld: worldViewBuilder),
+      );
+      await tester.tap(find.text('New Game'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Welcome to Bellwether'), findsOneWidget);
+      expect(find.text('Arrow keys, WASD, or touch controls'), findsOneWidget);
+      expect(find.text('P, Escape, or the Pause button'), findsOneWidget);
+      await tester.tap(find.text('Start exploring'));
+      await tester.pump();
+      expect(find.text('Welcome to Bellwether'), findsNothing);
+      expect(find.byType(WorldView), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
   testWidgets('loading cancellation and failure/retry screens are usable', (

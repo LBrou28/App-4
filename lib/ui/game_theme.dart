@@ -10,6 +10,11 @@ ThemeData lanternTheme() => ThemeData(
     primary: const Color(0xffe7c482),
     surface: const Color(0xff172936),
   ),
+  textTheme: const TextTheme(
+    bodyLarge: TextStyle(fontSize: 18, height: 1.45),
+    bodyMedium: TextStyle(fontSize: 16, height: 1.4),
+    labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  ),
   cardTheme: const CardThemeData(margin: EdgeInsets.zero),
   filledButtonTheme: FilledButtonThemeData(
     style: FilledButton.styleFrom(
