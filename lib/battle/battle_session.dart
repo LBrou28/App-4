@@ -17,8 +17,13 @@ final class CombatStats {
 
 typedef FleePolicy = Future<bool> Function(BattleSnapshot snapshot);
 
-/// Adapts C battle HP/MP/inventory to the shared result. No rewards.
-/// A receives the result and remains the owner of the application state.
+/// Applies an immutable reward snapshot only after a victory.
+typedef VictoryRewardApplier = shared.GameState Function(
+  shared.GameState state,
+);
+
+/// Adapts C battle HP/MP/inventory to one shared terminal result.
+/// A receives that result and remains the owner of its application state.
 final class BattleSession {
   BattleSession({
     required this.input,
@@ -27,6 +32,7 @@ final class BattleSession {
     this.fleePolicy,
     CombatRules? rules,
     Map<String, Set<String>> heroSpells = const {},
+    this.victoryRewardApplier,
   }) {
     if (enemies.any((e) => e.side != BattleSide.enemies)) {
       throw ArgumentError('Enemy roster contains a hero');
@@ -46,6 +52,7 @@ final class BattleSession {
 
   final shared.BattleInput input;
   final FleePolicy? fleePolicy;
+  final VictoryRewardApplier? victoryRewardApplier;
   late final BattleEngine _engine;
   shared.BattleResult? _result;
   bool _fleePending = false;
@@ -122,10 +129,8 @@ final class BattleSession {
 
   shared.BattleResult _makeResult(shared.BattleOutcome outcome) {
     final actors = {for (final c in snapshot.combatants) c.id: c};
-    return shared.BattleResult(
-      encounterId: input.encounterId,
-      baseRevision: input.baseRevision,
-      outcome: outcome,
+    final afterBattle = shared.GameState(
+      position: input.state.position,
       party: [
         for (final m in input.state.party)
           shared.PartyMember(
@@ -150,6 +155,18 @@ final class BattleSession {
           ? input.state.inventory
           : shared.Inventory(snapshot.inventory),
       gold: input.state.gold,
+      quests: input.state.quests,
+    );
+    final finalState = outcome == shared.BattleOutcome.victory
+        ? victoryRewardApplier?.call(afterBattle) ?? afterBattle
+        : afterBattle;
+    return shared.BattleResult(
+      encounterId: input.encounterId,
+      baseRevision: input.baseRevision,
+      outcome: outcome,
+      party: finalState.party,
+      inventory: finalState.inventory,
+      gold: finalState.gold,
     );
   }
 }
