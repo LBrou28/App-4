@@ -63,7 +63,7 @@ void main() {
     }
     expect(find.text('HP 84 / 100'), findsOneWidget);
     expect(find.text('MP 0 / 0'), findsNWidgets(2));
-    expect(find.text('Warrior · Level 3'), findsOneWidget);
+    expect(find.text('Breakwater · Level 3'), findsOneWidget);
     expect(find.text('Weapon: Harbor Blade'), findsOneWidget);
     final initial = host.state;
     host.publish(
@@ -131,8 +131,8 @@ void main() {
     expect((host.commands.last as EquipItem).itemId, isNull);
     await tester.tap(find.text('Jobs'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Choose White Mage'));
-    await tester.tap(find.text('Choose White Mage'));
+    await tester.ensureVisible(find.text('Choose Lantern Keeper'));
+    await tester.tap(find.text('Choose Lantern Keeper'));
     await tester.pumpAndSettle();
     expect((host.commands.last as ChangeJob).jobId, 'job.white_mage');
   });

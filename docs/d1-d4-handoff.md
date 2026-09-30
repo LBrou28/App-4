@@ -114,16 +114,20 @@ playtesting after B/C integration. This content draft does not claim a tested
 
 | Job ID | Display / intended role | Proposed abilities | Proposed equipment |
 | --- | --- | --- | --- |
-| `job.warrior` | Warrior / front line | Common physical commands | Harbor Blade, Keeper Coat |
-| `job.monk` | Monk / physical specialist | Common physical commands | Rope Wraps, Keeper Coat |
-| `job.white_mage` | White Mage / recovery | `spell.mend` | Shell Staff, Linen Robe |
-| `job.black_mage` | Black Mage / elemental attacks | `spell.ember`, `spell.rill` | Shell Staff, Linen Robe |
+| `job.warrior` | Breakwater / front line | `spell.anchor` | Harbor Blade, Keeper Coat |
+| `job.monk` | Tide Striker / physical momentum | `spell.current` | Rope Wraps, Keeper Coat |
+| `job.white_mage` | Lantern Keeper / recovery | `spell.mend`, `spell.glow` | Shell Staff, Linen Robe |
+| `job.black_mage` | Stormcaller / elemental attacks | `spell.ember`, `spell.rill`, `spell.charged` | Shell Staff, Linen Robe |
 
 | Spell ID | Target | Narrative effect |
 | --- | --- | --- |
 | `spell.mend` | Ally | Restore HP; C chooses amount, cost and KO legality |
+| `spell.anchor` | Ally | Defense creates a short damage reduction effect |
+| `spell.current` | Enemy | Consecutive attacks build a short momentum combo |
+| `spell.glow` | Ally | Healing can leave a shield or regeneration effect |
 | `spell.ember` | Enemy | Fire damage; C chooses amount, cost and resistances |
 | `spell.rill` | Enemy | Water damage; C chooses amount, cost and resistances |
+| `spell.charged` | Enemy | Lightning/water magic primes the next spell |
 
 | Enemy ID | Role | Encounter intent |
 | --- | --- | --- |
