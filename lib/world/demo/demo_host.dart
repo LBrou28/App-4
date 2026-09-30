@@ -8,11 +8,15 @@ enum DemoGate { exploration, pause, dialogue, battle, loading }
 
 /// Test harness only, not A2. No combat, dialogue, persistence or rewards.
 class DemoWorldHost extends ChangeNotifier implements WorldHost {
-  DemoWorldHost(this.map)
-    : _state = createContractFixture(position: map.spawns['entry']!),
+  DemoWorldHost(this.map, {Set<String> encounterIds = const {}})
+    : encounterIds = Set.unmodifiable(encounterIds),
+      _state = createContractFixture(position: map.spawns['entry']!),
       _collision = WorldCollision(map);
 
   final MapDefinition map;
+  final Set<String> encounterIds;
+  EncounterRequest? activeEncounter;
+  int encounterCount = 0;
   final WorldCollision _collision;
   GameState _state;
   int _revision = 0;
@@ -40,7 +44,9 @@ class DemoWorldHost extends ChangeNotifier implements WorldHost {
   }
 
   void setGate(DemoGate gate) {
-    if (_disposed || _notifying || gate == _gate) return;
+    if (_disposed || _notifying || activeEncounter != null || gate == _gate) {
+      return;
+    }
     _gate = gate;
     _publish();
   }
@@ -48,6 +54,8 @@ class DemoWorldHost extends ChangeNotifier implements WorldHost {
   void reset() {
     if (_disposed || _notifying) return;
     _state = createContractFixture(position: map.spawns['entry']!);
+    activeEncounter = null;
+    encounterCount = 0;
     _gate = DemoGate.exploration;
     _publish();
   }
@@ -72,12 +80,34 @@ class DemoWorldHost extends ChangeNotifier implements WorldHost {
     return true;
   }
 
-  // Encounter definitions are unavailable in B1. Reject without mutation.
+  // Only explicitly registered test definitions may enter the encounter gate.
   @override
   bool requestEncounter(
     EncounterRequest request, {
     required int expectedRevision,
-  }) => false;
+  }) {
+    if (_disposed ||
+        _notifying ||
+        !movementEnabled ||
+        activeEncounter != null ||
+        expectedRevision != revision ||
+        !encounterIds.contains(request.definitionId)) {
+      return false;
+    }
+    activeEncounter = request;
+    encounterCount++;
+    _gate = DemoGate.battle;
+    _publish();
+    return true;
+  }
+
+  /// Test-only return: no combat result or rewards; retains the captured position.
+  void finishEncounter() {
+    if (_disposed || _notifying || activeEncounter == null) return;
+    activeEncounter = null;
+    _gate = DemoGate.exploration;
+    _publish();
+  }
 
   @override
   void dispose() {

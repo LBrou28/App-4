@@ -8,6 +8,7 @@ import '../core/contracts.dart';
 import 'world_camera.dart';
 import 'world_controller.dart';
 import 'world_map.dart';
+import 'world_encounters.dart';
 
 /// Bind the map once; A2 supplies its stable host/notifier through the shared typedef.
 WorldViewBuilder worldViewBuilder(MapDefinition map) =>
@@ -20,10 +21,12 @@ class WorldView extends StatefulWidget {
     required this.map,
     required this.host,
     required this.changes,
+    this.encounters,
   });
   final MapDefinition map;
   final WorldHost host;
   final Listenable changes;
+  final EncounterStepper? encounters;
 
   @override
   State<WorldView> createState() => _WorldViewState();
@@ -65,6 +68,7 @@ class _WorldViewState extends State<WorldView>
     _controller = WorldController(
       host: widget.host,
       collision: WorldCollision(widget.map),
+      encounters: widget.encounters,
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
@@ -96,7 +100,8 @@ class _WorldViewState extends State<WorldView>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.host != widget.host ||
         oldWidget.changes != widget.changes ||
-        oldWidget.map != widget.map) {
+        oldWidget.map != widget.map ||
+        oldWidget.encounters != widget.encounters) {
       oldWidget.changes.removeListener(_hostChanged);
       _resetInput();
       _attach();
