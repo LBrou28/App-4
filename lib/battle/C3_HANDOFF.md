@@ -5,10 +5,10 @@ Card: https://trello.com/c/jINtTqUy/18-c3-add-magic-items-fleeing-and-enemy-beha
 ## Review and run
 
 This branch starts at A5 `f2e9183bc9f2e88e4073ab1845400ea9d521c5fa` (PR #11).
-It retains Jordan's pauseSignal and correlated result integration. Review C3
-against that branch; land dependencies and retarget main before merging. Do not
-merge into A5's feature branch. Luke is the peer reviewer; Trey reviews the new
-Wake Seed content entry and Jordan reviews the resource result boundary.
+It retains Jordan's pauseSignal and correlated result integration. A5 was merged
+to main as bc4487e during this work, so the C3 PR targets main with only C3 changes.
+Luke is the peer reviewer; Trey reviews the new Wake Seed content entry and
+Jordan reviews the resource result boundary.
 
 ```
 flutter run -d chrome -t lib/battle/demo/c3.dart
@@ -120,7 +120,7 @@ Trey should review its name/description and eventual acquisition source.
   repository CI pins 3.47.1/3.13.1.
 - Browser: selected Wake Seed/Mend/Ember, resolved one round, checked actual
   resource/HP/log updates and exhausted item disabled state; failed escape
-  executes enemy actions. Final boss/escape checks are recorded in the PR.
+  executes enemy actions. The final build also shows disabled boss escape.
 - Windows dependency setup reports missing symlink support on this machine;
   tests and web compilation work. Native Windows build is left to repository CI.
 
