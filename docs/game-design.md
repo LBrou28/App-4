@@ -18,7 +18,7 @@ This document records confirmed decisions separately from the proposed demo scop
 
 Four heroes, four starter jobs, a 15–20 minute demo with a town, connecting
 route, dungeon and boss, and one local save slot. The Trello card proposes
-Warrior, Monk, White Mage and Black Mage; a small spell set; simplified MP;
+Breakwater, Tide Striker, Lantern Keeper and Stormcaller; a small spell set; simplified MP;
 and no job-transition penalty or multiplayer in the first demo.
 
 T0 is marked complete, but no written team approval of those detailed rules

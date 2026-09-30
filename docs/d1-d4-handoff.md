@@ -114,10 +114,10 @@ playtesting after B/C integration. This content draft does not claim a tested
 
 | Job ID | Display / intended role | Proposed abilities | Proposed equipment |
 | --- | --- | --- | --- |
-| `job.warrior` | Warrior / front line | Common physical commands | Harbor Blade, Keeper Coat |
-| `job.monk` | Monk / physical specialist | Common physical commands | Rope Wraps, Keeper Coat |
-| `job.white_mage` | White Mage / recovery | `spell.mend` | Shell Staff, Linen Robe |
-| `job.black_mage` | Black Mage / elemental attacks | `spell.ember`, `spell.rill` | Shell Staff, Linen Robe |
+| `job.warrior` | Breakwater / front line | Common physical commands | Harbor Blade, Keeper Coat |
+| `job.monk` | Tide Striker / physical specialist | Common physical commands | Rope Wraps, Keeper Coat |
+| `job.white_mage` | Lantern Keeper / recovery | `spell.mend` | Shell Staff, Linen Robe |
+| `job.black_mage` | Stormcaller / elemental attacks | `spell.ember`, `spell.rill` | Shell Staff, Linen Robe |
 
 | Spell ID | Target | Narrative effect |
 | --- | --- | --- |

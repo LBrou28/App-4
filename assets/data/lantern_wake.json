@@ -10,10 +10,10 @@
     {"id":"hero.tavi","name":"Tavi","description":"A lamp maker learning to turn a spark into a signal.","jobId":"job.black_mage"}
   ],
   "jobs": [
-    {"id":"job.warrior","name":"Warrior","description":"Protect the crew and hold the front line.","abilityIds":[],"equipmentIds":["item.harbor_blade","item.keeper_coat"]},
-    {"id":"job.monk","name":"Monk","description":"Fight with discipline and an unburdened stance.","abilityIds":[],"equipmentIds":["item.rope_wraps","item.keeper_coat"]},
-    {"id":"job.white_mage","name":"White Mage","description":"Keep companions standing with restorative magic.","abilityIds":["spell.mend"],"equipmentIds":["item.shell_staff","item.linen_robe"]},
-    {"id":"job.black_mage","name":"Black Mage","description":"Explore elemental weaknesses with focused magic.","abilityIds":["spell.ember","spell.rill"],"equipmentIds":["item.shell_staff","item.linen_robe"]}
+    {"id":"job.warrior","name":"Breakwater","description":"A harbor-wall protector who holds the front line for the crew.","abilityIds":[],"equipmentIds":["item.harbor_blade","item.keeper_coat"]},
+    {"id":"job.monk","name":"Tide Striker","description":"A close-range fighter who turns rhythm and momentum into force.","abilityIds":[],"equipmentIds":["item.rope_wraps","item.keeper_coat"]},
+    {"id":"job.white_mage","name":"Lantern Keeper","description":"A healer who carries the Beacon's restorative light.","abilityIds":["spell.mend"],"equipmentIds":["item.shell_staff","item.linen_robe"]},
+    {"id":"job.black_mage","name":"Stormcaller","description":"A caster who channels the disrupted sea and weather.","abilityIds":["spell.ember","spell.rill"],"equipmentIds":["item.shell_staff","item.linen_robe"]}
   ],
   "items": [
     {"id":"item.revival","name":"Wake Seed","description":"Revives one fallen companion. C defines the restored HP.","kind":"consumable","slotId":null},
