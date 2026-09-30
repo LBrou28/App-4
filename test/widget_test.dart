@@ -45,8 +45,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       await tester.pump(const Duration(milliseconds: 50));
       expect(host.state.position.x, greaterThan(2.5));
-      await tester.tap(find.text('Pause'));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
       await tester.pump();
+      expect(find.text('Paused'), findsOneWidget);
       final stopped = host.state.position.x;
       await tester.pump(const Duration(milliseconds: 100));
       expect(host.state.position.x, stopped);
@@ -65,6 +67,9 @@ void main() {
       await tester.tap(find.text('Pause'));
       await tester.pump();
       await tester.tap(find.text('End session'));
+      await tester.pump();
+      expect(find.text('Leave this session?'), findsOneWidget);
+      await tester.tap(find.text('End session').last);
       await tester.pump();
       expect(find.text('New Game'), findsOneWidget);
       final oldRevision = host.revision;

@@ -74,6 +74,19 @@ void main() {
     );
     expect(seen.length, 2);
   });
+  test('presentation settings stay responsive while paused', () async {
+    final c = AppController(loadWorld: () async => session());
+    addTearDown(c.dispose);
+    await c.newGame();
+    expect(c.setPaused(true), isTrue);
+    expect(c.setMusicEnabled(false), isTrue);
+    expect(c.setEffectsEnabled(false), isTrue);
+    expect(c.movementEnabled, isFalse);
+    expect(c.musicEnabled, isFalse);
+    expect(c.effectsEnabled, isFalse);
+    expect(c.setMusicEnabled(false), isFalse);
+    expect(c.setEffectsEnabled(false), isFalse);
+  });
   test(
     'cancelled load cannot overwrite a newer session and revisions never reset',
     () async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/contracts.dart';
 import '../battle/ui/battle_screen.dart';
@@ -140,6 +141,94 @@ class _GameAppState extends State<GameApp> {
     if (_controller.movementEnabled) _worldFocus.requestFocus();
   }
 
+  void _togglePause() {
+    if (_controller.mode != AppMode.exploration &&
+        _controller.mode != AppMode.battle) {
+      return;
+    }
+    _controller.setPaused(!_controller.paused);
+    if (!_controller.paused) _worldFocus.requestFocus();
+  }
+
+  Future<void> _confirmEndSession() async {
+    final end = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave this session?'),
+        content: const Text('Your progress since the last save will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep playing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('End session'),
+          ),
+        ],
+      ),
+    );
+    if (end == true && mounted) _returnToTitle();
+  }
+
+  Future<void> _showHelp() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('How to play'),
+      content: const SizedBox(
+        width: 480,
+        child: Text(
+          'Explore: Arrow keys, WASD, or the direction buttons.\n\n'
+          'Pause: P or Escape, then choose Resume.\n\n'
+          'Use Tab and Enter to move through every menu.',
+          style: TextStyle(height: 1.55),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          autofocus: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Got it'),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _showSettings() => showDialog<void>(
+    context: context,
+    builder: (context) => AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => AlertDialog(
+        title: const Text('Settings'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                title: const Text('Music'),
+                value: _controller.musicEnabled,
+                onChanged: _controller.setMusicEnabled,
+              ),
+              SwitchListTile(
+                title: const Text('Sound effects'),
+                value: _controller.effectsEnabled,
+                onChanged: _controller.setEffectsEnabled,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    ),
+  );
+
   Future<void> _startNewGame() async {
     await _controller.newGame();
     if (!mounted || _controller.mode != AppMode.exploration) return;
@@ -221,166 +310,195 @@ class _GameAppState extends State<GameApp> {
       colorSchemeSeed: const Color(0xffd4bb7b),
       useMaterial3: true,
     ),
-    home: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final map = _controller.map;
-        if (map != null && !identical(map, _viewMap)) {
-          _viewMap = map;
-          _world = widget.buildWorld(map)(context, _controller, _controller);
-        }
-        final exploring = _controller.mode == AppMode.exploration;
-        final battling = _controller.mode == AppMode.battle;
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(widget.title),
-            actions: [
-              if (exploring &&
-                  !_controller.paused &&
-                  widget.trainingEncounterId != null)
-                TextButton(
-                  onPressed: () => _controller.requestEncounter(
-                    EncounterRequest(definitionId: widget.trainingEncounterId!),
-                    expectedRevision: _controller.revision,
+    home: CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyP): _togglePause,
+        const SingleActivator(LogicalKeyboardKey.escape): _togglePause,
+      },
+      child: Focus(
+        autofocus: true,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final map = _controller.map;
+            if (map != null && !identical(map, _viewMap)) {
+              _viewMap = map;
+              _world = widget.buildWorld(map)(
+                context,
+                _controller,
+                _controller,
+              );
+            }
+            final exploring = _controller.mode == AppMode.exploration;
+            final battling = _controller.mode == AppMode.battle;
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(widget.title),
+                actions: [
+                  IconButton(
+                    tooltip: 'Help and controls',
+                    onPressed: _showHelp,
+                    icon: const Icon(Icons.help_outline),
                   ),
-                  child: const Text('Training battle'),
-                ),
-              if (exploring || battling)
-                TextButton(
-                  onPressed: () {
-                    if (_controller.paused) {
-                      _resume();
-                    } else {
-                      _controller.setPaused(true);
-                    }
-                  },
-                  child: Text(_controller.paused ? 'Resume' : 'Pause'),
-                ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              if (_world != null)
-                Positioned.fill(
-                  child: Offstage(
-                    offstage:
-                        !exploring && _controller.mode != AppMode.dialogue,
-                    child: TickerMode(
-                      enabled: exploring && !_controller.paused,
-                      child: FocusScope(node: _worldFocus, child: _world!),
-                    ),
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: _showSettings,
+                    icon: const Icon(Icons.settings_outlined),
                   ),
-                ),
-              if (_controller.mode == AppMode.title)
-                Positioned.fill(
-                  child: _panel('A new adventure begins', widget.introduction, [
-                    FilledButton(
-                      onPressed: _startNewGame,
-                      child: const Text('New Game'),
-                    ),
-                    if (_availability is SaveLoaded)
-                      OutlinedButton(
-                        onPressed: _continueGame,
-                        child: const Text('Continue'),
-                      ),
-                    if (_availability is SaveUnreadable)
-                      const Text(
-                        'The saved journey cannot be read on this version.',
-                      ),
-                  ]),
-                ),
-              if (_controller.mode == AppMode.loading)
-                Positioned.fill(
-                  child: _panel(
-                    'Loading world',
-                    'Preparing your starting point…',
-                    [
-                      const CircularProgressIndicator(),
-                      TextButton(
-                        onPressed: _returnToTitle,
-                        child: const Text('Cancel'),
-                      ),
-                    ],
-                  ),
-                ),
-              if (_controller.mode == AppMode.error)
-                Positioned.fill(
-                  child: _panel('Unable to start', _controller.error!, [
-                    FilledButton(
-                      onPressed: _startNewGame,
-                      child: const Text('Try again'),
-                    ),
+                  if (exploring &&
+                      !_controller.paused &&
+                      widget.trainingEncounterId != null)
                     TextButton(
-                      onPressed: _returnToTitle,
-                      child: const Text('Back to title'),
+                      onPressed: () => _controller.requestEncounter(
+                        EncounterRequest(
+                          definitionId: widget.trainingEncounterId!,
+                        ),
+                        expectedRevision: _controller.revision,
+                      ),
+                      child: const Text('Training battle'),
                     ),
-                  ]),
-                ),
-              if (battling)
-                Positioned.fill(
-                  child: BattleScreen(
-                    key: ValueKey(_controller.activeBattle!.input.encounterId),
-                    session: _controller.activeBattle!,
-                    pauseSignal: _controller,
-                    title: widget.battleTitle,
-                    names: widget.battleNames,
-                    onCompleted: (result) {
-                      if (_controller.acceptBattleResult(result) &&
-                          _controller.movementEnabled) {
-                        _worldFocus.requestFocus();
-                      }
-                    },
-                  ),
-                ),
-              if (_controller.mode == AppMode.gameOver)
-                Positioned.fill(
-                  child: _panel(
-                    'Party defeated',
-                    'Your journey has ended. Start a new game or return to the title to continue your last save.',
-                    [
-                      FilledButton(
-                        onPressed: _startNewGame,
-                        child: const Text('New Game'),
+                  if (exploring || battling)
+                    TextButton(
+                      onPressed: _togglePause,
+                      child: Text(_controller.paused ? 'Resume' : 'Pause'),
+                    ),
+                ],
+              ),
+              body: Stack(
+                children: [
+                  if (_world != null)
+                    Positioned.fill(
+                      child: Offstage(
+                        offstage:
+                            !exploring && _controller.mode != AppMode.dialogue,
+                        child: TickerMode(
+                          enabled: exploring && !_controller.paused,
+                          child: FocusScope(node: _worldFocus, child: _world!),
+                        ),
                       ),
-                      TextButton(
-                        onPressed: _returnToTitle,
-                        child: const Text('Back to title'),
-                      ),
-                    ],
-                  ),
-                ),
-              if ((exploring || battling) && _controller.paused)
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: const Color(0xff102027),
-                    child: _panel(
-                      'Paused',
-                      'Your position is kept while paused. Save here to continue this journey after closing the game.',
-                      [
-                        if (exploring && widget.saves != null)
-                          FilledButton.tonal(
-                            onPressed: _saveBusy ? null : _saveGame,
-                            child: Text(_saveBusy ? 'Saving…' : 'Save game'),
+                    ),
+                  if (_controller.mode == AppMode.title)
+                    Positioned.fill(
+                      child: _panel(
+                        'A new adventure begins',
+                        widget.introduction,
+                        [
+                          FilledButton(
+                            onPressed: _startNewGame,
+                            child: const Text('New Game'),
                           ),
-                        if (_saveMessage != null) Text(_saveMessage!),
+                          if (_availability is SaveLoaded)
+                            OutlinedButton(
+                              onPressed: _continueGame,
+                              child: const Text('Continue'),
+                            ),
+                          if (_availability is SaveUnreadable)
+                            const Text(
+                              'The saved journey cannot be read on this version.',
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (_controller.mode == AppMode.loading)
+                    Positioned.fill(
+                      child: _panel(
+                        'Loading world',
+                        'Preparing your starting point…',
+                        [
+                          const CircularProgressIndicator(),
+                          TextButton(
+                            onPressed: _returnToTitle,
+                            child: const Text('Cancel'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_controller.mode == AppMode.error)
+                    Positioned.fill(
+                      child: _panel('Unable to start', _controller.error!, [
                         FilledButton(
-                          onPressed: _saveBusy ? null : _resume,
-                          child: Text(
-                            battling ? 'Continue battle' : 'Continue exploring',
-                          ),
+                          onPressed: _startNewGame,
+                          child: const Text('Try again'),
                         ),
                         TextButton(
-                          onPressed: _saveBusy ? null : _returnToTitle,
-                          child: const Text('End session'),
+                          onPressed: _returnToTitle,
+                          child: const Text('Back to title'),
                         ),
-                      ],
+                      ]),
                     ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+                  if (battling)
+                    Positioned.fill(
+                      child: BattleScreen(
+                        key: ValueKey(
+                          _controller.activeBattle!.input.encounterId,
+                        ),
+                        session: _controller.activeBattle!,
+                        pauseSignal: _controller,
+                        title: widget.battleTitle,
+                        names: widget.battleNames,
+                        onCompleted: (result) {
+                          if (_controller.acceptBattleResult(result) &&
+                              _controller.movementEnabled) {
+                            _worldFocus.requestFocus();
+                          }
+                        },
+                      ),
+                    ),
+                  if (_controller.mode == AppMode.gameOver)
+                    Positioned.fill(
+                      child: _panel(
+                        'Party defeated',
+                        'Your journey has ended. Start a new game or return to the title to continue your last save.',
+                        [
+                          FilledButton(
+                            onPressed: _startNewGame,
+                            child: const Text('New Game'),
+                          ),
+                          TextButton(
+                            onPressed: _returnToTitle,
+                            child: const Text('Back to title'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if ((exploring || battling) && _controller.paused)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: const Color(0xff102027),
+                        child: _panel(
+                          'Paused',
+                          'Your position is kept while paused. Save here to continue this journey after closing the game.',
+                          [
+                            if (exploring && widget.saves != null)
+                              FilledButton.tonal(
+                                onPressed: _saveBusy ? null : _saveGame,
+                                child: Text(
+                                  _saveBusy ? 'Saving…' : 'Save game',
+                                ),
+                              ),
+                            if (_saveMessage != null) Text(_saveMessage!),
+                            FilledButton(
+                              onPressed: _saveBusy ? null : _resume,
+                              child: Text(
+                                battling
+                                    ? 'Continue battle'
+                                    : 'Continue exploring',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _saveBusy ? null : _confirmEndSession,
+                              child: const Text('End session'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     ),
   );
 }
