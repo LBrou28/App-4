@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/contracts.dart';
+import '../../progression.dart';
 import '../content/demo_content.dart';
 import '../dialogue_panel.dart';
 import '../game_theme.dart';
@@ -17,16 +18,22 @@ void main() => runApp(
   ),
 );
 
-/// Fixture host only: production commands await C4/A integration.
+/// A small C4 integration host for the D party-menu preview.
 class PreviewHost extends ChangeNotifier implements PartyMenuHost {
-  PreviewHost(DemoContent content) : state = previewState(content);
+  PreviewHost(DemoContent content) : _state = previewState(content);
+  final PartyRules _rules = LanternJobRules();
+  GameState _state;
   @override
-  final GameState state;
+  GameState get state => _state;
   @override
-  Future<CommandResult> submit(MenuCommand command) async => CommandRejected(
-    code: 'preview_only',
-    message: 'Preview only: party changes will be available when the game rules are connected.',
-  );
+  Future<CommandResult> submit(MenuCommand command) async {
+    final result = _rules.apply(state, command);
+    if (result case CommandAccepted(:final state)) {
+      _state = state;
+      notifyListeners();
+    }
+    return result;
+  }
 }
 
 GameState previewState(DemoContent content) => GameState(
@@ -169,7 +176,7 @@ class _MenuPreviewState extends State<MenuPreview> {
                   ),
                   const SizedBox(height: 28),
                   const Text(
-                    'This preview uses sample stats. Party actions show the validation response; rules, saving and map events are awaiting integration.',
+                    'The party menu applies C4 job and equipment rules. Saving and map events remain preview-only.',
                     style: TextStyle(color: Color(0xffadc1ca)),
                   ),
                   const SizedBox(height: 16),
