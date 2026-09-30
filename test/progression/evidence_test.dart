@@ -53,8 +53,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Choose White Mage'));
-    await tester.tap(find.text('Choose White Mage'));
+    await tester.ensureVisible(find.text('Choose Lantern Keeper'));
+    await tester.tap(find.text('Choose Lantern Keeper'));
     await tester.pumpAndSettle();
     expect(find.text('Current job'), findsOneWidget);
     final boundary =
