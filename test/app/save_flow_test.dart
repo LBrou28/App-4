@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:app_4/app/app_controller.dart';
+import 'package:app_4/app/integration_preview.dart';
 import 'package:app_4/app/world_operations.dart';
 import 'package:app_4/battle/battle.dart' as combat;
 import 'package:app_4/battle/battle_session.dart';
@@ -197,6 +198,41 @@ void main() {
 
     expect(decoded.contentVersion, 'lantern-wake.draft.1');
     expect(decoded.state.inventory.quantities['item.revival'], 1);
+  });
+
+  test('production encounter adapter registers content rules and route enemy', () {
+    final content = DemoContent.decode(
+      File('assets/data/lantern_wake.json').readAsStringSync(),
+    );
+    final fixture = createContractFixture(
+      position: const WorldPosition(
+        mapId: 'map.salt_path',
+        x: 3.5,
+        y: 13.5,
+      ),
+    );
+    final session = createLanternProductionBattle(
+      BattleInput(
+        encounterId: 'encounter.test',
+        baseRevision: 1,
+        request: EncounterRequest(definitionId: 'fixture.battle'),
+        state: fixture,
+        seed: 1,
+      ),
+      content,
+    );
+
+    expect(
+      session.rules.spells.keys,
+      containsAll(['spell.mend', 'spell.ember']),
+    );
+    expect(
+      session.rules.items.keys,
+      containsAll(['item.salves', 'item.ether', 'item.revival']),
+    );
+    expect(session.snapshot.combatants.last.id, 'enemy.brine_mite@encounter.test');
+    expect(session.snapshot.combatants.last.isBoss, isFalse);
+    expect(session.snapshot.combatants.last.pattern, isNotEmpty);
   });
 
   test(
