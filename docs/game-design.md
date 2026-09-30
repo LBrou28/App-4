@@ -21,20 +21,21 @@ route, dungeon and boss, and one local save slot. The Trello card proposes
 Warrior, Monk, White Mage and Black Mage; a small spell set; simplified MP;
 and no job-transition penalty or multiplayer in the first demo.
 
-## D4 story direction under review
+## D4 story decision
 
 Luke's September 29 proposal reframes Bellwether as a tutorial island: the four
 heroes survive a shipwreck with the living lantern, restore the tide bell, and
 end the opening chapter with the route to a future island unlocked. The lantern's
 long-term connection to each island and the next-island hook remain team decisions.
-The authored draft reflects the shipwreck and onward-travel payoff while keeping
-the first-island route unchanged.
+The authored content now uses the shipwreck and onward-travel payoff while keeping
+the first-island route unchanged. This is the selected D4 direction for the first
+demo; the later island remains outside the demo scope.
 
 Luke also proposed setting-specific job identities: Breakwater (Anchor), Tide
 Striker (Current), Lantern Keeper (Glow), and Stormcaller (Charged). These names
 and signature ability IDs are authored content; C still owns formulas, costs,
-balance and command legality. Treat them as the current D4 review proposal until
-the team confirms the shared vocabulary.
+balance and command legality. These names and the four signature IDs are the
+selected D4 vocabulary for authored content; C still owns the combat behavior.
 
 T0 is marked complete, but no written team approval of those detailed rules
 was found. Do not treat synthetic A1 fixture values as game balance or content.

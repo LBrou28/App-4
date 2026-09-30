@@ -3,7 +3,7 @@
 Cards: [D1 menus](https://trello.com/c/A8XvNVzh) ·
 [D4 story/data](https://trello.com/c/Qon6F4VP)
 
-Status: **presentation and content draft ready for review; not integrated or Done.**
+Status: **presentation and finalized D4 content ready for integration review; not Done.**
 Branch `codex/d1-d4-menus-content` is stacked on A2's existing
 `codex/a2-world-shell` at `760861d`. It reuses A1's DTOs without changing
 `lib/core/`, `lib/app/`, `lib/world/`, `lib/battle/` or `lib/main.dart`.
@@ -144,7 +144,8 @@ introducing D-owned combat or progression formulas.
 
 ## Authoring schema and validation
 
-Source of truth: `assets/data/lantern_wake.json`.
+Source of truth: `assets/data/lantern_wake.json` (`contentVersion`:
+`lantern-wake.island.2`).
 Parser: `lib/ui/content/demo_content.dart`.
 
 `schemaVersion: 1` is D's local authoring schema. `contentVersion` identifies
