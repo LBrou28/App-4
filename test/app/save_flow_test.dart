@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:app_4/app/app_controller.dart';
+import 'package:app_4/app/integration_preview.dart';
 import 'package:app_4/app/world_operations.dart';
 import 'package:app_4/battle/battle.dart' as combat;
 import 'package:app_4/battle/battle_session.dart';
+import 'package:app_4/battle/lantern_balance.dart';
 import 'package:app_4/core/contracts.dart';
 import 'package:app_4/core/fixtures/contract_fixture.dart';
 import 'package:app_4/save/save_codec.dart';
@@ -176,6 +178,219 @@ void main() {
       expect(() => SaveCodec.decode('{}'), throwsFormatException);
     },
   );
+
+  test('schema-1 preserves C3 consumable IDs for the A3 migration path', () {
+    final fixture = createContractFixture();
+    final state = GameState(
+      position: fixture.position,
+      party: fixture.party,
+      inventory: Inventory({
+        ...fixture.inventory.quantities,
+        'item.revival': 1,
+      }),
+      gold: fixture.gold,
+      quests: fixture.quests,
+    );
+    final decoded = SaveCodec.decode(
+      SaveCodec.encode(
+        SaveData(contentVersion: 'lantern-wake.draft.1', state: state),
+      ),
+    );
+
+    expect(decoded.contentVersion, 'lantern-wake.draft.1');
+    expect(decoded.state.inventory.quantities['item.revival'], 1);
+  });
+
+  test('production campaign registers the authored party and C5 balance', () {
+    final content = DemoContent.decode(
+      File('assets/data/lantern_wake.json').readAsStringSync(),
+    );
+    final balance = LanternBalance();
+    final state = createLanternInitialState(
+      content,
+      WorldPosition(mapId: 'map.salt_path', x: 3.5, y: 13.5),
+      progression: balance.progression,
+    );
+    final session = balance.createSession(
+      BattleInput(
+        encounterId: 'encounter.test',
+        baseRevision: 1,
+        request: EncounterRequest(definitionId: 'enemy.brine_mite'),
+        state: state,
+        seed: 1,
+      ),
+    );
+
+    expect(state.party.map((member) => member.id), [
+      'hero.ada',
+      'hero.ren',
+      'hero.iona',
+      'hero.tavi',
+    ]);
+    expect(state.party.map((member) => member.jobId), [
+      'job.warrior',
+      'job.monk',
+      'job.white_mage',
+      'job.black_mage',
+    ]);
+    expect(state.party.every((member) => member.hp == member.maxHp), isTrue);
+    expect(state.inventory.quantities['item.revival'], 1);
+    expect(
+      session.rules.spells.keys,
+      containsAll(['spell.mend', 'spell.ember']),
+    );
+    expect(
+      session.rules.items.keys,
+      containsAll(['item.salves', 'item.ether', 'item.revival']),
+    );
+    expect(session.snapshot.combatants.last.id, 'enemy.brine_mite');
+    expect(session.snapshot.combatants.last.isBoss, isFalse);
+    expect(session.snapshot.combatants.last.pattern, isNotEmpty);
+  });
+
+  test('production quest, chest, boss rewards and every save field survive Continue', () async {
+    final content = DemoContent.decode(
+      File('assets/data/lantern_wake.json').readAsStringSync(),
+    );
+    final world = InteractionWorld(content);
+    final balance = LanternBalance();
+    final initial = createLanternInitialState(
+      content,
+      world.maps['map.bellwether']!.spawns['entry']!,
+      progression: balance.progression,
+    );
+    final saves = MemorySave();
+    final c = AppController(
+      loadWorld: () async => world.session(restored: initial),
+      saves: saves,
+      battles: {
+        for (final id in LanternBalance.encounters.keys)
+          id: balance.createSession,
+      },
+    );
+    addTearDown(c.dispose);
+    await c.newGame();
+
+    WorldPosition reachable(InteractionSite site) {
+      final map = world.maps[site.mapId]!;
+      final collision = WorldCollision(map);
+      for (var y = 0; y < map.height; y++) {
+        for (var x = 0; x < map.width; x++) {
+          final position = WorldPosition(mapId: map.id, x: x + .5, y: y + .5);
+          if (collision.isClear(position) && site.canActivate(position)) {
+            return position;
+          }
+        }
+      }
+      throw StateError('No reachable position on ${site.mapId}');
+    }
+
+    void moveTo(InteractionSite site) {
+      expect(c.state.position.mapId, site.mapId);
+      expect(
+        c.updatePosition(reachable(site), expectedRevision: c.revision),
+        isTrue,
+      );
+    }
+
+    void takeExit(String id) {
+      final exit = world.operations.exits[id]!;
+      moveTo(exit.site);
+      expect(c.useMapExit(id, expectedRevision: c.revision), isTrue);
+    }
+
+    final accept = world.operations.questSteps['step.accept']!;
+    moveTo(accept.site);
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {'quest.lantern.accepted'});
+
+    takeExit('exit.harbor_to_causeway');
+    final chest = world.operations.chests['chest.causeway_supplies']!;
+    moveTo(chest.site);
+    expect(c.openChest(chest.id, expectedRevision: c.revision), isTrue);
+    expect(c.state.inventory.quantities['item.salves'], 4);
+
+    takeExit('exit.causeway_to_cistern');
+    final bell = world.operations.questSteps['step.bell']!;
+    moveTo(bell.site);
+    expect(
+      c.openDialogue(bell.interactionId, expectedRevision: c.revision),
+      isTrue,
+    );
+    final battle = c.activeBattle!;
+    expect(battle.snapshot.combatants.last.id, 'enemy.hollow_bell');
+    for (var round = 0; battle.result == null && round < 20; round++) {
+      final living = battle.snapshot.combatants
+          .where(
+            (actor) => actor.side == combat.BattleSide.heroes && actor.isAlive,
+          )
+          .toList();
+      final enemy = battle.snapshot.combatants.firstWhere(
+        (actor) => actor.side == combat.BattleSide.enemies && actor.isAlive,
+      );
+      final lowest = living.reduce(
+        (current, next) => current.hp <= next.hp ? current : next,
+      );
+      battle.resolve(battle.snapshot.round, [
+        for (final hero in living)
+          if (hero.spellIds.contains('spell.mend') &&
+              hero.mp >= battle.rules.spells['spell.mend']!.mpCost &&
+              lowest.hp * 2 <= lowest.maxHp)
+            combat.HeroCommand.spell(hero.id, 'spell.mend', lowest.id)
+          else if (hero.spellIds.contains('spell.ember') &&
+              hero.mp >= battle.rules.spells['spell.ember']!.mpCost)
+            combat.HeroCommand.spell(hero.id, 'spell.ember', enemy.id)
+          else
+            combat.HeroCommand.attack(hero.id, enemy.id),
+      ]);
+    }
+    expect(battle.result, isNotNull);
+    expect(battle.result!.outcome, BattleOutcome.victory);
+    expect(c.acceptBattleResult(battle.result!), isTrue);
+    expect(c.mode, AppMode.dialogue);
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.gold, 50);
+    expect(c.state.party.every((member) => member.experience == 90), isTrue);
+    expect(
+      c.state.party.every((member) => member.jobProgress[member.jobId] == 90),
+      isTrue,
+    );
+
+    takeExit('exit.cistern_to_causeway');
+    takeExit('exit.causeway_to_harbor');
+    final finish = world.operations.questSteps['step.return']!;
+    moveTo(finish.site);
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {
+      'quest.lantern.accepted',
+      'quest.lantern.bell_awake',
+      'quest.lantern.complete',
+    });
+    expect(c.state.quests.openedChestIds, {'chest.causeway_supplies'});
+
+    final before = SaveCodec.encode(
+      SaveData(contentVersion: content.version, state: c.state),
+    );
+    c.setPaused(true);
+    expect(await c.saveCurrent(), isA<SaveWritten>());
+    c.returnToTitle();
+    expect(await c.continueGame(), isA<SaveLoaded>());
+    final after = SaveCodec.encode(
+      SaveData(contentVersion: content.version, state: c.state),
+    );
+    expect(after, before);
+  });
 
   test(
     'chest and battle state survives save, title and Continue exactly once',
