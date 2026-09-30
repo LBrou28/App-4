@@ -46,6 +46,7 @@ class AppController extends ChangeNotifier
   WorldSession? _session;
   WorldArea? _area;
   ActiveDialogue? _dialogue;
+  WorldQuestStep? _postBattleDialogue;
   int _dialogueSequence = 0;
   bool _checking = false;
   bool _saving = false;
@@ -129,6 +130,7 @@ class AppController extends ChangeNotifier
       _area = area;
       _state = restored;
       _dialogue = null;
+      _postBattleDialogue = null;
       _battle = null;
       _paused = false;
       _error = null;
@@ -156,6 +158,7 @@ class AppController extends ChangeNotifier
     if (!_canWrite || _mode == AppMode.loading) return;
     final generation = ++_loadGeneration;
     _dialogue = null;
+    _postBattleDialogue = null;
     _battle = null;
     _mode = AppMode.loading;
     _paused = false;
@@ -198,6 +201,7 @@ class AppController extends ChangeNotifier
     if (!_canWrite || _mode == AppMode.title) return;
     ++_loadGeneration; // Cancel pending completions without resetting revision.
     _dialogue = null;
+    _postBattleDialogue = null;
     _battle = null;
     _mode = AppMode.title;
     _paused = false;
@@ -244,6 +248,20 @@ class AppController extends ChangeNotifier
       site.mapId == state.position.mapId &&
       _check(() => site.canActivate(state.position));
 
+  WorldQuestStep? _availableQuestStep(String interactionId) {
+    for (final step in _session!.operations.questSteps.values) {
+      if (step.interactionId != interactionId ||
+          !_reachable(step.site) ||
+          !state.quests.flags.containsAll(step.requiresFlags) ||
+          (step.setsFlag != null &&
+              state.quests.flags.contains(step.setsFlag))) {
+        continue;
+      }
+      return step;
+    }
+    return null;
+  }
+
   GameState _copyState({
     WorldPosition? position,
     Inventory? inventory,
@@ -279,6 +297,23 @@ class AppController extends ChangeNotifier
   @override
   bool openDialogue(String interactionId, {required int expectedRevision}) {
     if (!_canInteract(expectedRevision)) return false;
+    final questStep = _availableQuestStep(interactionId);
+    if (questStep != null) {
+      if (questStep.encounterId != null) {
+        return _launchEncounter(
+          EncounterRequest(definitionId: questStep.encounterId!),
+          postBattleDialogue: questStep,
+        );
+      }
+      _dialogue = ActiveDialogue(
+        token: ++_dialogueSequence,
+        dialogue: questStep.dialogue,
+        setsQuestFlag: questStep.setsFlag,
+      );
+      _mode = AppMode.dialogue;
+      _publish();
+      return true;
+    }
     final dialogue = _session!.operations.dialogues[interactionId];
     if (dialogue == null || !_reachable(dialogue.site)) return false;
     _dialogue = ActiveDialogue(token: ++_dialogueSequence, dialogue: dialogue);
@@ -288,7 +323,7 @@ class AppController extends ChangeNotifier
   }
 
   /// A's presentation adapter owns completion. Cancellation and completion both
-  /// release the gate; neither grants implicit quest flags or rewards.
+  /// release the gate. Quest flags are granted only by successful completion.
   bool closeDialogue(int token, {required int expectedRevision}) {
     if (!_canWrite ||
         expectedRevision != revision ||
@@ -299,6 +334,31 @@ class AppController extends ChangeNotifier
     _dialogue = null;
     _mode = AppMode.exploration;
     _publish(); // Preserve lifecycle pause; dismissal must not auto-resume.
+    return true;
+  }
+
+  /// Completion can grant the one authored flag attached to the active quest
+  /// dialogue. A stale route or cancellation cannot write it.
+  bool completeDialogue(int token, {required int expectedRevision}) {
+    if (!_canWrite ||
+        expectedRevision != revision ||
+        _mode != AppMode.dialogue ||
+        _dialogue?.token != token) {
+      return false;
+    }
+    final flag = _dialogue!.setsQuestFlag;
+    if (flag != null && state.quests.flags.contains(flag)) return false;
+    if (flag != null) {
+      _state = _copyState(
+        quests: QuestFlags(
+          flags: {...state.quests.flags, flag},
+          openedChestIds: state.quests.openedChestIds,
+        ),
+      );
+    }
+    _dialogue = null;
+    _mode = AppMode.exploration;
+    _publish();
     return true;
   }
 
@@ -333,6 +393,14 @@ class AppController extends ChangeNotifier
     if (!_canInteract(expectedRevision) || !state.party.any((m) => m.hp > 0)) {
       return false;
     }
+    return _launchEncounter(request);
+  }
+
+  bool _launchEncounter(
+    EncounterRequest request, {
+    WorldQuestStep? postBattleDialogue,
+  }) {
+    if (!state.party.any((m) => m.hp > 0)) return false;
     final factory = _battles[request.definitionId];
     if (factory == null) return false;
     final sequence = _encounterSequence + 1;
@@ -351,6 +419,7 @@ class AppController extends ChangeNotifier
     if (!valid) return false;
     _encounterSequence = sequence;
     _battle = session;
+    _postBattleDialogue = postBattleDialogue;
     _mode = AppMode.battle;
     _publish();
     return true;
@@ -383,11 +452,24 @@ class AppController extends ChangeNotifier
       return false;
     }
     _state = next;
+    final followup = result.outcome == BattleOutcome.victory
+        ? _postBattleDialogue
+        : null;
     _battle =
         null; // Clear before publication: duplicate callbacks cannot commit.
-    _mode = result.outcome == BattleOutcome.defeat
-        ? AppMode.gameOver
-        : AppMode.exploration;
+    _postBattleDialogue = null;
+    if (followup != null) {
+      _dialogue = ActiveDialogue(
+        token: ++_dialogueSequence,
+        dialogue: followup.dialogue,
+        setsQuestFlag: followup.setsFlag,
+      );
+      _mode = AppMode.dialogue;
+    } else {
+      _mode = result.outcome == BattleOutcome.defeat
+          ? AppMode.gameOver
+          : AppMode.exploration;
+    }
     _publish();
     return true;
   }

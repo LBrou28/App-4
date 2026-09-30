@@ -53,6 +53,40 @@ final class WorldDialogue {
   final List<String> lines;
 }
 
+/// A content-authored quest moment attached to one of B's interaction sites.
+/// Completing its dialogue can grant one durable quest flag; cancelling it
+/// never changes game state. An encounter-backed step presents its dialogue
+/// only after the matching battle is won.
+final class WorldQuestStep {
+  WorldQuestStep({
+    required this.id,
+    required this.interactionId,
+    required this.site,
+    required this.dialogue,
+    Set<String> requiresFlags = const {},
+    this.setsFlag,
+    this.encounterId,
+  }) : requiresFlags = Set.unmodifiable(requiresFlags) {
+    requireId(id, 'quest step');
+    requireId(interactionId, 'quest interaction');
+    for (final flag in requiresFlags) {
+      requireId(flag, 'required quest flag');
+    }
+    final grantedFlag = setsFlag;
+    if (grantedFlag != null) requireId(grantedFlag, 'set quest flag');
+    final battle = encounterId;
+    if (battle != null) requireId(battle, 'quest encounter');
+  }
+
+  final String id;
+  final String interactionId;
+  final InteractionSite site;
+  final WorldDialogue dialogue;
+  final Set<String> requiresFlags;
+  final String? setsFlag;
+  final String? encounterId;
+}
+
 final class WorldChest {
   WorldChest({
     required this.id,
@@ -77,11 +111,13 @@ final class WorldOperations {
     List<WorldArea> areas = const [],
     List<MapExit> exits = const [],
     List<WorldDialogue> dialogues = const [],
+    List<WorldQuestStep> questSteps = const [],
     List<WorldChest> chests = const [],
     Set<String> itemIds = const {},
   }) : areas = _index(areas, (v) => v.map.id),
        exits = _index(exits, (v) => v.id),
        dialogues = _index(dialogues, (v) => v.id),
+       questSteps = _index(questSteps, (v) => v.id),
        chests = _index(chests, (v) => v.id) {
     for (final chest in chests) {
       if (!itemIds.contains(chest.itemId)) {
@@ -92,6 +128,7 @@ final class WorldOperations {
   final Map<String, WorldArea> areas;
   final Map<String, MapExit> exits;
   final Map<String, WorldDialogue> dialogues;
+  final Map<String, WorldQuestStep> questSteps;
   final Map<String, WorldChest> chests;
 }
 
@@ -107,7 +144,12 @@ Map<String, T> _index<T>(List<T> values, String Function(T) key) {
 }
 
 final class ActiveDialogue {
-  const ActiveDialogue({required this.token, required this.dialogue});
+  const ActiveDialogue({
+    required this.token,
+    required this.dialogue,
+    this.setsQuestFlag,
+  });
   final int token;
   final WorldDialogue dialogue;
+  final String? setsQuestFlag;
 }
