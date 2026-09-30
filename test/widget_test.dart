@@ -68,9 +68,6 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('End session'));
       await tester.pump();
-      expect(find.text('Leave this session?'), findsOneWidget);
-      await tester.tap(find.text('End session').last);
-      await tester.pump();
       expect(find.text('New Game'), findsOneWidget);
       final oldRevision = host.revision;
       await tester.tap(find.text('New Game'));

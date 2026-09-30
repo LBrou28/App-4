@@ -150,29 +150,8 @@ class _GameAppState extends State<GameApp> {
     if (!_controller.paused) _worldFocus.requestFocus();
   }
 
-  Future<void> _confirmEndSession() async {
-    final end = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Leave this session?'),
-        content: const Text('Your progress since the last save will be lost.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep playing'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('End session'),
-          ),
-        ],
-      ),
-    );
-    if (end == true && mounted) _returnToTitle();
-  }
-
   Future<void> _showHelp() => showDialog<void>(
-    context: context,
+    context: _navigator.currentContext!,
     builder: (context) => AlertDialog(
       title: const Text('How to play'),
       content: const SizedBox(
@@ -195,7 +174,7 @@ class _GameAppState extends State<GameApp> {
   );
 
   Future<void> _showSettings() => showDialog<void>(
-    context: context,
+    context: _navigator.currentContext!,
     builder: (context) => AnimatedBuilder(
       animation: _controller,
       builder: (context, _) => AlertDialog(
@@ -486,7 +465,7 @@ class _GameAppState extends State<GameApp> {
                               ),
                             ),
                             TextButton(
-                              onPressed: _saveBusy ? null : _confirmEndSession,
+                          onPressed: _saveBusy ? null : _returnToTitle,
                               child: const Text('End session'),
                             ),
                           ],
