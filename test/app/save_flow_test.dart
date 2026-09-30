@@ -177,6 +177,28 @@ void main() {
     },
   );
 
+  test('schema-1 preserves C3 consumable IDs for the A3 migration path', () {
+    final fixture = createContractFixture();
+    final state = GameState(
+      position: fixture.position,
+      party: fixture.party,
+      inventory: Inventory({
+        ...fixture.inventory.quantities,
+        'item.revival': 1,
+      }),
+      gold: fixture.gold,
+      quests: fixture.quests,
+    );
+    final decoded = SaveCodec.decode(
+      SaveCodec.encode(
+        SaveData(contentVersion: 'lantern-wake.draft.1', state: state),
+      ),
+    );
+
+    expect(decoded.contentVersion, 'lantern-wake.draft.1');
+    expect(decoded.state.inventory.quantities['item.revival'], 1);
+  });
+
   test(
     'chest and battle state survives save, title and Continue exactly once',
     () async {
