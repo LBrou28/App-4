@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/contracts.dart';
+import '../battle/battle_session.dart';
 import '../core/fixtures/contract_fixture.dart';
 import 'world_operations.dart';
 
@@ -11,18 +12,35 @@ final class WorldSession {
     required this.initialState,
     required this.isClear,
     WorldOperations? operations,
+    this.contentVersion,
+    this.validateSavedState,
   }) : operations = operations ?? WorldOperations();
   final WorldOperations operations;
   final MapDefinition map;
   final GameState initialState;
   final bool Function(WorldPosition) isClear;
+  final String? contentVersion;
+  final bool Function(GameState)? validateSavedState;
 }
 
 typedef WorldLoader = Future<WorldSession> Function();
+typedef BattleFactory = BattleSession Function(BattleInput input);
 
-/// A2 exploration slice. Battle acceptance stays disabled until its contract is agreed.
-class AppController extends ChangeNotifier implements WorldInteractionHost {
-  AppController({required this.loadWorld});
+/// Authoritative A coordinator. Only registered C battle adapters may launch.
+class AppController extends ChangeNotifier
+    implements WorldInteractionHost, ValueListenable<bool> {
+  AppController({
+    required this.loadWorld,
+    Map<String, BattleFactory> battles = const {},
+    this.saves,
+  }) : _battles = Map.unmodifiable(battles);
+  final SaveRepository? saves;
+  final Map<String, BattleFactory> _battles;
+  BattleSession? _battle;
+  BattleSession? get activeBattle => _battle;
+  int _encounterSequence = 0;
+  @override
+  bool get value => _paused;
   final WorldLoader loadWorld;
   GameState _state = createContractFixture();
   WorldSession? _session;
@@ -30,6 +48,7 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
   ActiveDialogue? _dialogue;
   int _dialogueSequence = 0;
   bool _checking = false;
+  bool _saving = false;
   ActiveDialogue? get activeDialogue => _dialogue;
   AppMode _mode = AppMode.title;
   int _revision = 0;
@@ -50,7 +69,78 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
   @override
   bool get movementEnabled =>
       !_disposed && _mode == AppMode.exploration && !_paused;
-  bool get _canWrite => !_disposed && !_notifying && !_checking;
+  bool get _canWrite => !_disposed && !_notifying && !_checking && !_saving;
+
+  Future<LoadResult> readSave() async =>
+      await saves?.load() ?? SaveUnreadable(SaveReadFailure.unavailable);
+
+  /// Saves one coherent snapshot while world writes are gated. Saving itself
+  /// never changes the state or revision.
+  Future<WriteResult> saveCurrent() async {
+    final repository = saves;
+    final version = _session?.contentVersion;
+    if (!_canWrite ||
+        _mode != AppMode.exploration ||
+        !_paused ||
+        repository == null ||
+        version == null) {
+      return SaveWriteFailed('Saving is unavailable right now.');
+    }
+    _saving = true;
+    try {
+      return await repository.save(
+        SaveData(contentVersion: version, state: _state),
+      );
+    } finally {
+      _saving = false;
+    }
+  }
+
+  /// Restores only a compatible state on a currently valid world. A rejected
+  /// save leaves the active state, revision and mode unchanged.
+  Future<LoadResult> continueGame() async {
+    if (!_canWrite || _mode != AppMode.title || saves == null) {
+      return SaveUnreadable(SaveReadFailure.unavailable);
+    }
+    _saving = true;
+    try {
+      final loadedSave = await saves!.load();
+      if (loadedSave is! SaveLoaded || _disposed) return loadedSave;
+      final loadedWorld = await loadWorld();
+      if (_disposed) return SaveUnreadable(SaveReadFailure.unavailable);
+      if (loadedSave.data.contentVersion != loadedWorld.contentVersion) {
+        return SaveUnreadable(SaveReadFailure.unsupportedVersion);
+      }
+      final restored = loadedSave.data.state;
+      final area = restored.position.mapId == loadedWorld.map.id
+          ? WorldArea(map: loadedWorld.map, isClear: loadedWorld.isClear)
+          : loadedWorld.operations.areas[restored.position.mapId];
+      if (area == null ||
+          !_check(() => area.isClear(restored.position)) ||
+          restored.party.length != loadedWorld.initialState.party.length ||
+          !restored.party.asMap().entries.every(
+            (entry) =>
+                entry.value.id == loadedWorld.initialState.party[entry.key].id,
+          ) ||
+          loadedWorld.validateSavedState?.call(restored) == false) {
+        return SaveUnreadable(SaveReadFailure.corrupt);
+      }
+      _session = loadedWorld;
+      _area = area;
+      _state = restored;
+      _dialogue = null;
+      _battle = null;
+      _paused = false;
+      _error = null;
+      _mode = AppMode.exploration;
+      _publish();
+      return loadedSave;
+    } catch (_) {
+      return SaveUnreadable(SaveReadFailure.corrupt);
+    } finally {
+      _saving = false;
+    }
+  }
 
   void _publish() {
     _revision++;
@@ -66,6 +156,7 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
     if (!_canWrite || _mode == AppMode.loading) return;
     final generation = ++_loadGeneration;
     _dialogue = null;
+    _battle = null;
     _mode = AppMode.loading;
     _paused = false;
     _error = null;
@@ -92,7 +183,9 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
 
   bool setPaused(bool value) {
     if (!_canWrite ||
-        (_mode != AppMode.exploration && _mode != AppMode.dialogue) ||
+        (_mode != AppMode.exploration &&
+            _mode != AppMode.dialogue &&
+            _mode != AppMode.battle) ||
         value == _paused) {
       return false;
     }
@@ -105,6 +198,7 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
     if (!_canWrite || _mode == AppMode.title) return;
     ++_loadGeneration; // Cancel pending completions without resetting revision.
     _dialogue = null;
+    _battle = null;
     _mode = AppMode.title;
     _paused = false;
     _error = null;
@@ -230,13 +324,73 @@ class AppController extends ChangeNotifier implements WorldInteractionHost {
     return true;
   }
 
-  /// No encounter definitions or battle adapter have been agreed for this slice.
-  /// All requests reject without mutation, including fresh requests.
+  /// Only explicitly registered C factories can launch. Rejection is a no-op.
   @override
   bool requestEncounter(
     EncounterRequest request, {
     required int expectedRevision,
-  }) => false;
+  }) {
+    if (!_canInteract(expectedRevision) || !state.party.any((m) => m.hp > 0)) {
+      return false;
+    }
+    final factory = _battles[request.definitionId];
+    if (factory == null) return false;
+    final sequence = _encounterSequence + 1;
+    final input = BattleInput(
+      encounterId: 'encounter.$sequence',
+      baseRevision: revision + 1,
+      request: request,
+      state: state,
+      seed: sequence,
+    );
+    BattleSession? session;
+    final valid = _check(() {
+      session = factory(input);
+      return identical(session!.input, input) && session!.result == null;
+    });
+    if (!valid) return false;
+    _encounterSequence = sequence;
+    _battle = session;
+    _mode = AppMode.battle;
+    _publish();
+    return true;
+  }
+
+  /// C2's no-cost/no-reward result is produced by the exact active session.
+  /// Correlation uses the launch revision, not gate revisions changed by pause.
+  bool acceptBattleResult(BattleResult result) {
+    final session = _battle;
+    if (!_canWrite ||
+        _paused ||
+        _mode != AppMode.battle ||
+        session == null ||
+        !identical(result, session.result) ||
+        result.encounterId != session.input.encounterId ||
+        result.baseRevision != session.input.baseRevision) {
+      return false;
+    }
+    final next = GameState(
+      position: session.input.state.position,
+      party: result.party,
+      inventory: result.inventory,
+      gold: result.gold,
+      quests: session.input.state.quests,
+    );
+    if (!result.party.asMap().entries.every(
+          (entry) => entry.value.id == session.input.state.party[entry.key].id,
+        ) ||
+        !_check(() => _session?.validateSavedState?.call(next) ?? true)) {
+      return false;
+    }
+    _state = next;
+    _battle =
+        null; // Clear before publication: duplicate callbacks cannot commit.
+    _mode = result.outcome == BattleOutcome.defeat
+        ? AppMode.gameOver
+        : AppMode.exploration;
+    _publish();
+    return true;
+  }
 
   @override
   void dispose() {

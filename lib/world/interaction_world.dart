@@ -11,6 +11,7 @@ import 'world_map.dart';
 /// story effects; D's content and A's operations own those later handoffs.
 final class InteractionWorld {
   InteractionWorld(DemoContent content) {
+    _content = content;
     WorldTarget target(
       String id,
       String map,
@@ -242,6 +243,7 @@ final class InteractionWorld {
 
   late final WorldInteractions targets;
   late final List<WorldLandmark> landmarks;
+  late final DemoContent _content;
   late final Map<String, MapDefinition> maps;
   late final Map<String, String> names;
   late final WorldOperations operations;
@@ -291,6 +293,20 @@ final class InteractionWorld {
           restored ?? createContractFixture(position: map.spawns['entry']!),
       isClear: WorldCollision(map).isClear,
       operations: operations,
+      contentVersion: _content.version,
+      validateSavedState: (state) {
+        final ids = _content.sharedItems.keys.toSet()..add('fixture.item');
+        final jobs = _content.sharedJobs.keys.toSet()..add('fixture.job');
+        return state.inventory.quantities.keys.every(ids.contains) &&
+            state.party.every(
+              (member) =>
+                  jobs.contains(member.jobId) &&
+                  member.jobProgress.keys.every(jobs.contains) &&
+                  member.equipment.values.every(ids.contains),
+            ) &&
+            state.quests.flags.every(_content.flags.contains) &&
+            state.quests.openedChestIds.every(operations.chests.containsKey);
+      },
     );
   }
 }
