@@ -115,14 +115,21 @@ class _GameAppState extends State<GameApp> {
         ),
       );
       _dialogueRoute = route;
-      navigator.push(route).then((_) {
+      navigator.push(route).then((dismissal) {
         if (!mounted || _shownDialogue != active.token) return;
         _dialogueRoute = null;
         _shownDialogue = null;
-        _controller.closeDialogue(
-          active.token,
-          expectedRevision: _controller.revision,
-        );
+        if (dismissal == DialogueDismissal.completed) {
+          _controller.completeDialogue(
+            active.token,
+            expectedRevision: _controller.revision,
+          );
+        } else {
+          _controller.closeDialogue(
+            active.token,
+            expectedRevision: _controller.revision,
+          );
+        }
         if (_controller.movementEnabled) _worldFocus.requestFocus();
       });
     });

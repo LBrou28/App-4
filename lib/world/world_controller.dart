@@ -39,6 +39,10 @@ class WorldController {
         target.id,
         expectedRevision: h.revision,
       ),
+      WorldTargetKind.quest => h.openDialogue(
+        target.id,
+        expectedRevision: h.revision,
+      ),
       WorldTargetKind.chest => h.openChest(
         target.id,
         expectedRevision: h.revision,
@@ -80,6 +84,7 @@ class WorldController {
     _held.remove(source);
     if (direction != null) facing = direction!;
   }
+
   void clearInput() {
     _held.clear();
     _stepDistance = 0;

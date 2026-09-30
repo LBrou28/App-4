@@ -57,6 +57,22 @@ final class InteractionWorld {
         'Supply chest',
       ),
       target(
+        'quest.cistern.threshold',
+        dungeon,
+        16,
+        8,
+        WorldTargetKind.quest,
+        'Marked threshold',
+      ),
+      target(
+        'quest.cistern.bell',
+        dungeon,
+        20,
+        8,
+        WorldTargetKind.quest,
+        'The Hollow Bell',
+      ),
+      target(
         'exit.harbor_to_causeway',
         town,
         22,
@@ -214,7 +230,30 @@ final class InteractionWorld {
       content: content,
       sites: {
         for (final t in targets.targets)
-          if (t.kind != WorldTargetKind.exit) t.id: site(t),
+          if (t.kind == WorldTargetKind.npc || t.kind == WorldTargetKind.chest)
+            t.id: site(t),
+      },
+      questPlacements: {
+        'step.accept': QuestPlacement(
+          interactionId: 'npc.mara',
+          site: site(byId['npc.mara']!),
+        ),
+        'step.prepare': QuestPlacement(
+          interactionId: 'npc.sable',
+          site: site(byId['npc.sable']!),
+        ),
+        'step.enter': QuestPlacement(
+          interactionId: 'quest.cistern.threshold',
+          site: site(byId['quest.cistern.threshold']!),
+        ),
+        'step.bell': QuestPlacement(
+          interactionId: 'quest.cistern.bell',
+          site: site(byId['quest.cistern.bell']!),
+        ),
+        'step.return': QuestPlacement(
+          interactionId: 'npc.mara',
+          site: site(byId['npc.mara']!),
+        ),
       },
       areas: [
         for (final map in maps.values)

@@ -1,12 +1,20 @@
 import '../core/contracts.dart';
 import 'world_map.dart';
 
-enum WorldTargetKind { npc, chest, exit }
+enum WorldTargetKind { npc, chest, quest, exit }
 
 /// A named point of interest shown on B's authored maps. Landmarks are visual
 /// only: story progression and effects remain owned by their respective A/C/D
 /// operations.
-enum WorldLandmarkKind { rest, lantern, dock, supplies, shelter, threshold, bell }
+enum WorldLandmarkKind {
+  rest,
+  lantern,
+  dock,
+  supplies,
+  shelter,
+  threshold,
+  bell,
+}
 
 final class WorldLandmark {
   WorldLandmark({

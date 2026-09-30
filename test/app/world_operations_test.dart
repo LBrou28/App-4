@@ -11,6 +11,8 @@ import 'package:app_4/app/app_controller.dart';
 import 'package:app_4/app/world_operations.dart';
 import 'package:app_4/app/content_operations.dart';
 import 'package:app_4/app/game_app.dart';
+import 'package:app_4/battle/battle.dart' as combat;
+import 'package:app_4/battle/battle_session.dart';
 import 'package:app_4/core/contracts.dart';
 import 'package:app_4/core/fixtures/contract_fixture.dart';
 import 'package:app_4/ui/content/demo_content.dart';
@@ -85,6 +87,31 @@ Future<AppController> controller(WorldOperations ops) async {
   return c;
 }
 
+BattleSession questBattle(BattleInput input) => BattleSession(
+  input: input,
+  heroStats: {
+    for (final member in input.state.party)
+      member.id: const CombatStats(attack: 20, defense: 0, speed: 5),
+  },
+  enemies: [
+    combat.Combatant(
+      id: 'enemy.hollow_bell',
+      side: combat.BattleSide.enemies,
+      hp: 1,
+      maxHp: 1,
+      attack: 0,
+      defense: 0,
+      speed: 0,
+    ),
+  ],
+);
+
+void win(BattleSession battle) => battle.resolve(battle.snapshot.round, [
+  for (final combatant in battle.snapshot.combatants)
+    if (combatant.side == combat.BattleSide.heroes && combatant.isAlive)
+      combat.HeroCommand.attack(combatant.id, 'enemy.hollow_bell'),
+]);
+
 void main() {
   test('exit publishes map and named spawn atomically and invalidates old movement', () async {
     final c = await controller(operations());
@@ -154,6 +181,106 @@ void main() {
       unreachable.openChest('chest', expectedRevision: unreachable.revision),
       isFalse,
     );
+  });
+  test('quest dialogue flags are completion-only and boss victory opens its finale', () async {
+    final first = map('first');
+    final questSite = InteractionSite(
+      mapId: first.id,
+      canActivate: (position) => position.x == 2.5 && position.y == 2.5,
+    );
+    WorldDialogue dialogue(String id) => WorldDialogue(
+      id: id,
+      site: questSite,
+      speaker: 'Keeper Mara',
+      lines: ['A quest moment.'],
+    );
+    final ops = WorldOperations(
+      questSteps: [
+        WorldQuestStep(
+          id: 'step.accept',
+          interactionId: 'npc.mara',
+          site: questSite,
+          dialogue: dialogue('dialogue.call'),
+          setsFlag: 'quest.accepted',
+        ),
+        WorldQuestStep(
+          id: 'step.bell',
+          interactionId: 'quest.bell',
+          site: questSite,
+          dialogue: dialogue('dialogue.bell'),
+          requiresFlags: {'quest.accepted'},
+          setsFlag: 'quest.bell_awake',
+          encounterId: 'enemy.hollow_bell',
+        ),
+        WorldQuestStep(
+          id: 'step.return',
+          interactionId: 'npc.mara',
+          site: questSite,
+          dialogue: dialogue('dialogue.ending'),
+          requiresFlags: {'quest.bell_awake'},
+          setsFlag: 'quest.complete',
+        ),
+      ],
+    );
+    final c = AppController(
+      loadWorld: () async => WorldSession(
+        map: first,
+        initialState: createContractFixture(position: first.spawns['entry']!),
+        isClear: WorldCollision(first).isClear,
+        operations: ops,
+      ),
+      battles: {'enemy.hollow_bell': questBattle},
+    );
+    addTearDown(c.dispose);
+    await c.newGame();
+
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+    final accept = c.activeDialogue!.token;
+    expect(c.closeDialogue(accept, expectedRevision: c.revision), isTrue);
+    expect(c.state.quests.flags, isEmpty);
+    expect(c.openDialogue('quest.bell', expectedRevision: c.revision), isFalse);
+
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {'quest.accepted'});
+
+    expect(c.openDialogue('quest.bell', expectedRevision: c.revision), isTrue);
+    expect(c.mode, AppMode.battle);
+    final firstBattle = c.activeBattle!;
+    win(firstBattle);
+    expect(c.acceptBattleResult(firstBattle.result!), isTrue);
+    expect(c.mode, AppMode.dialogue);
+    expect(c.activeDialogue!.dialogue.id, 'dialogue.bell');
+    expect(
+      c.closeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {'quest.accepted'});
+
+    expect(c.openDialogue('quest.bell', expectedRevision: c.revision), isTrue);
+    final retry = c.activeBattle!;
+    win(retry);
+    expect(c.acceptBattleResult(retry.result!), isTrue);
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {'quest.accepted', 'quest.bell_awake'});
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+    expect(c.activeDialogue!.dialogue.id, 'dialogue.ending');
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(c.state.quests.flags, {
+      'quest.accepted',
+      'quest.bell_awake',
+      'quest.complete',
+    });
+    expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isFalse);
   });
   test('chest grant and opened flag publish exactly once including listener reentry', () async {
     final c = await controller(operations());
