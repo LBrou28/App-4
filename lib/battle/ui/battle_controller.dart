@@ -42,6 +42,36 @@ final class BattleController extends ChangeNotifier {
   final List<BattleEvent> _events = [];
   List<BattleEvent> get events => List.unmodifiable(_events);
   bool targeting = false;
+  CombatEffect? pendingEffect;
+  bool pendingItem = false;
+  int availableItems(String id) =>
+      (snapshot.inventory[id] ?? 0) -
+      _commands
+          .where((c) => c.action == BattleAction.item && c.effectId == id)
+          .length;
+  bool canUse(CombatEffect effect, {required bool item}) =>
+      canChoose &&
+      active != null &&
+      (item
+          ? availableItems(effect.id) > 0
+          : active!.spellIds.contains(effect.id) &&
+                active!.mp >= effect.mpCost);
+  void chooseEffect(CombatEffect effect, {required bool item}) {
+    if (!canUse(effect, item: item) || targeting) return;
+    pendingEffect = effect;
+    pendingItem = item;
+    targeting = true;
+    message = null;
+    notifyListeners();
+  }
+
+  bool validTarget(Combatant target) =>
+      canChoose &&
+      targeting &&
+      active != null &&
+      (pendingEffect == null
+          ? target.side == BattleSide.enemies && target.isAlive
+          : BattleEngine.validEffectTarget(pendingEffect!, active!, target));
   bool busy = false;
   bool _disposed = false;
   bool _returned = false;
@@ -60,6 +90,7 @@ final class BattleController extends ChangeNotifier {
 
   void attack() {
     if (!canChoose || active == null) return;
+    pendingEffect = null;
     targeting = true;
     message = null;
     notifyListeners();
@@ -69,12 +100,17 @@ final class BattleController extends ChangeNotifier {
     if (!canChoose ||
         !targeting ||
         active == null ||
-        !snapshot.combatants.any(
-          (c) => c.id == id && c.side == BattleSide.enemies && c.isAlive,
-        )) {
+        !snapshot.combatants.any((c) => c.id == id && validTarget(c))) {
       return;
     }
-    _commands.add(HeroCommand.attack(active!.id, id));
+    _commands.add(
+      pendingEffect == null
+          ? HeroCommand.attack(active!.id, id)
+          : pendingItem
+          ? HeroCommand.item(active!.id, pendingEffect!.id, id)
+          : HeroCommand.spell(active!.id, pendingEffect!.id, id),
+    );
+    pendingEffect = null;
     targeting = false;
     notifyListeners();
   }
@@ -89,6 +125,7 @@ final class BattleController extends ChangeNotifier {
   void back() {
     if (!canChoose) return;
     if (targeting) {
+      pendingEffect = null;
       targeting = false;
     } else if (_commands.isNotEmpty) {
       _commands.removeLast();
@@ -142,16 +179,33 @@ final class BattleController extends ChangeNotifier {
   }
 
   Future<void> flee() async {
-    if (!canChoose || session.fleePolicy == null) return;
+    if (!canChoose || !session.canFlee) return;
     busy = true;
     message = 'Attempting escape…';
     notifyListeners();
     try {
       final escaped = await session.flee();
+      final round = session.lastFleeRound;
+      if (round != null) {
+        _events.clear();
+        for (final event in round.events) {
+          await _waitForResume();
+          if (_disposed) return;
+          _events.add(event);
+          notifyListeners();
+          await Future<void>.delayed(eventDelay);
+        }
+        _commands.clear();
+        targeting = false;
+        pendingEffect = null;
+      }
       await _waitForResume();
       if (!_disposed) {
-        message = escaped
+        _snapshot = session.snapshot;
+        message = escaped || session.result != null
             ? null
+            : round != null
+            ? 'Escape failed. Enemies took their turn.'
             : 'Escape failed. Your commands are still selected.';
       }
     } catch (_) {

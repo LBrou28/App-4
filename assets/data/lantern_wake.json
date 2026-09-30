@@ -16,6 +16,7 @@
     {"id":"job.black_mage","name":"Black Mage","description":"Explore elemental weaknesses with focused magic.","abilityIds":["spell.ember","spell.rill"],"equipmentIds":["item.shell_staff","item.linen_robe"]}
   ],
   "items": [
+    {"id":"item.revival","name":"Wake Seed","description":"Revives one fallen companion. C defines the restored HP.","kind":"consumable","slotId":null},
     {"id":"item.salves","name":"Harbor Salve","description":"A travel tin of restorative herbs. Healing amount belongs to C's rules.","kind":"consumable","slotId":null},
     {"id":"item.ether","name":"Dew Phial","description":"Condensed lantern dew. MP recovery belongs to C's rules.","kind":"consumable","slotId":null},
     {"id":"item.harbor_blade","name":"Harbor Blade","description":"A short rescue blade, kept sharp for tangled lines.","kind":"weapon","slotId":"weapon"},
