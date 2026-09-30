@@ -63,7 +63,7 @@ void main() {
     }
     expect(find.text('HP 84 / 100'), findsOneWidget);
     expect(find.text('MP 0 / 0'), findsNWidgets(2));
-    expect(find.text('Breakwater · Level 3'), findsOneWidget);
+    expect(find.text('Breakwater · Level 2'), findsOneWidget);
     expect(find.text('Weapon: Harbor Blade'), findsOneWidget);
     final initial = host.state;
     host.publish(

@@ -93,6 +93,22 @@ void main() {
     expect(state.party.first.jobProgress['job.warrior'], 8);
   });
 
+  test('XP is authoritative when a legacy party member has a stale level', () {
+    var state = fixtureState(level: 3, experience: 120);
+    expect(rules.profileFor(state.party.first).maxHp, 44);
+
+    state = accepted(
+      rules.apply(state, ChangeJob(memberId: 'hero.ada', jobId: 'job.monk')),
+    );
+    final ada = state.party.first;
+    expect(ada.level, 2);
+    expect(ada.maxHp, 39);
+
+    state = rules.grantExperience(state, amount: 1, memberIds: ['hero.ada']);
+    expect(state.party.first.level, 2);
+    expect(state.party.first.maxHp, 39);
+  });
+
   test('equipment rejects restrictions and preserves state on rejection', () {
     final state = fixtureState(
       inventory: {'item.shell_staff': 1, 'item.rope_wraps': 1},
@@ -128,6 +144,7 @@ GameState fixtureState({
   List<String>? jobs,
   int hp = 20,
   int mp = 0,
+  int level = 1,
   int experience = 0,
   Map<String, int>? jobProgress,
   Map<String, String>? equipment,
@@ -155,7 +172,7 @@ GameState fixtureState({
         maxHp: 50,
         mp: mp,
         maxMp: 40,
-        level: 1,
+        level: level,
         experience: experience,
         jobProgress: jobProgress ?? {},
         equipment: index == 0

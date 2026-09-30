@@ -24,8 +24,10 @@ and calculating stats.
 
 ## XP and job progress
 
-- Character XP is permanent. A level is `floor(XP / 100) + 1`, so level two
-  begins at 100 XP.
+- Character XP is permanent and authoritative. A level is always
+  `floor(XP / 100) + 1`, so level two begins at 100 XP. C4 derives profiles
+  from XP, normalizes the stored level during job changes and XP awards, and
+  never lets an inconsistent save lower a character after an award.
 - A reward increases permanent XP and only the active job's progress by the
   same amount. Switching never changes any stored job progress.
 - `grantExperience` returns the complete new `GameState`; the battle result
@@ -51,7 +53,7 @@ compatible. Signature combat-status mechanics remain a later design decision.
 ## Review evidence
 
 The C4 capture pumps the existing party menu, changes Ada from Breakwater to
-Lantern Keeper through the real `PreviewHost`, and records the accepted state at
-1280×720.
+Lantern Keeper through the real `PreviewHost`, and records the accepted state
+at 1280×720.
 
 ![C4 job switching](evidence/c4-job-switching.png)

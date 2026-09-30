@@ -47,7 +47,7 @@ GameState previewState(DemoContent content) => GameState(
         maxHp: [100, 90, 70, 75][i],
         mp: [0, 0, 18, 14][i],
         maxMp: [0, 0, 24, 28][i],
-        level: 3,
+        level: 2,
         experience: 120,
         jobProgress: {hero.text('jobId'): 2},
         equipment: {

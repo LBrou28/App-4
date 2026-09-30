@@ -166,7 +166,8 @@ final class LanternJobRules implements PartyRules {
   JobProfile profileFor(PartyMember member) {
     final job = _jobs[member.jobId];
     if (job == null) throw ArgumentError.value(member.jobId, 'member.jobId');
-    return job.profileAt(member.level);
+    // Save data carries a display level, but XP is the progression source.
+    return job.profileAt(levelForExperience(member.experience));
   }
 
   /// Each whole 100 character XP earns one character level. Job progress uses
@@ -248,10 +249,12 @@ final class LanternJobRules implements PartyRules {
     }
     final progress = {...member.jobProgress};
     progress.putIfAbsent(command.jobId, () => 0);
-    final profile = nextJob.profileAt(member.level);
+    final level = levelForExperience(member.experience);
+    final profile = nextJob.profileAt(level);
     final updated = _copyMember(
       member,
       jobId: command.jobId,
+      level: level,
       hp: _clampResource(member.hp, profile.maxHp),
       maxHp: profile.maxHp,
       mp: _clampResource(member.mp, profile.maxMp),
