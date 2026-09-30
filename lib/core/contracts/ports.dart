@@ -58,3 +58,13 @@ final class SaveWriteFailed extends WriteResult {
   SaveWriteFailed(this.message);
   final String message;
 }
+
+/// Additive B2/B3 capability; existing B1 hosts need not implement it.
+/// Requests use registered IDs, never caller-supplied positions or rewards.
+/// True commits once and synchronously publishes a newer revision. False is a
+/// no-op. All operations reject reentrant writes and stale expected revisions.
+abstract interface class WorldInteractionHost implements WorldHost {
+  bool useMapExit(String exitId, {required int expectedRevision});
+  bool openDialogue(String interactionId, {required int expectedRevision});
+  bool openChest(String chestId, {required int expectedRevision});
+}
