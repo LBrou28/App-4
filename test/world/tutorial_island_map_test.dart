@@ -53,6 +53,17 @@ void main() {
     }
   });
 
+  test('Bellwether geometry matches the authored harbor artwork', () {
+    final town = world.maps['map.bellwether']!;
+
+    expect(town.width, 25);
+    expect(town.height, 20);
+    expect(
+      WorldCollision(town).isClear(town.spawns['entry']!),
+      isTrue,
+    );
+  });
+
   test('the authored maps preserve the return path between each tutorial area', () {
     final exits = {
       for (final target in world.targets.targets.where(

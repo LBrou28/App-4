@@ -174,15 +174,23 @@ final class InteractionWorld {
     maps = Map.unmodifiable({
       town: _map(
         town,
-        24,
-        16,
+        25,
+        20,
         {'entry': (19, 8), 'from_causeway': (19, 8)},
         {
-          for (var x = 2; x <= 7; x++)
-            if (x != 4) ...{(x, 2), (x, 6)},
-          for (var y = 3; y <= 5; y++) ...{(2, y), (7, y)},
-          for (var x = 14; x <= 17; x++) ...{(x, 3), (x, 12)},
-          for (var y = 4; y <= 11; y++) ...{(14, y), (17, y)},
+          // Bellwether's harbor artwork is authored as a 25 x 20 tile scene.
+          // Keep collision to the solid buildings and central monument so visual
+          // walls and blocked movement describe the same spaces.
+          for (var x = 6; x <= 9; x++)
+            for (var y = 1; y <= 3; y++) (x, y),
+          for (var x = 2; x <= 4; x++)
+            for (var y = 8; y <= 9; y++) (x, y),
+          for (var x = 14; x <= 16; x++)
+            for (var y = 2; y <= 4; y++) (x, y),
+          for (var x = 15; x <= 18; x++)
+            for (var y = 7; y <= 9; y++) (x, y),
+          for (var x = 10; x <= 11; x++)
+            for (var y = 9; y <= 10; y++) (x, y),
         },
       ),
       route: _map(
