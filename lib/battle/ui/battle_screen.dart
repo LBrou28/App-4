@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
 import '../../ui/game_theme.dart';
+import '../../ui/sprite_art.dart';
 import '../battle.dart';
 import '../battle_session.dart';
 import 'battle_controller.dart';
@@ -144,6 +145,9 @@ class _BattleScreenState extends State<BattleScreen> {
     final heroes = _controller.snapshot.combatants.where(
       (c) => c.side == BattleSide.heroes,
     );
+    final bossEncounter = enemies.any(
+      (enemy) => enemy.id == 'enemy.hollow_bell',
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -159,6 +163,11 @@ class _BattleScreenState extends State<BattleScreen> {
                     ? 'Choose an enemy'
                     : 'Enemy formation',
                 style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: bossEncounter ? 190 : 150,
+                child: EncounterArtwork(isBoss: bossEncounter),
               ),
               const SizedBox(height: 20),
               Wrap(
@@ -216,7 +225,17 @@ class _BattleScreenState extends State<BattleScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('YOUR PARTY', style: Theme.of(context).textTheme.labelLarge),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'YOUR PARTY',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            const SizedBox(width: 170, height: 72, child: BattlePartyArtwork()),
+          ],
+        ),
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {

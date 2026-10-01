@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../app/world_view_builder.dart';
 import '../core/contracts.dart';
+import '../ui/sprite_art.dart';
 import 'world_camera.dart';
 import 'world_controller.dart';
 import 'world_map.dart';
@@ -46,6 +49,7 @@ class _WorldViewState extends State<WorldView>
   late AppLifecycleListener _lifecycle;
   final _focus = FocusNode(debugLabel: 'B1 world controls');
   Duration? _lastFrame;
+  ui.Image? _harborArt;
 
   static final _keys = <LogicalKeyboardKey, WalkDirection>{
     LogicalKeyboardKey.arrowUp: WalkDirection.up,
@@ -62,6 +66,7 @@ class _WorldViewState extends State<WorldView>
   void initState() {
     super.initState();
     _attach();
+    _loadHarborArt();
     _ticker = createTicker(_tick)..start();
     _lifecycle = AppLifecycleListener(
       onInactive: _resetInput,
@@ -80,6 +85,21 @@ class _WorldViewState extends State<WorldView>
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
+  }
+
+  Future<void> _loadHarborArt() async {
+    if (widget.map.id != 'map.bellwether' || _harborArt != null) return;
+    final data = await rootBundle.load(
+      'assets/maps/bellwether_harbor_paths_v3.png',
+    );
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    codec.dispose();
+    if (!mounted) {
+      frame.image.dispose();
+      return;
+    }
+    setState(() => _harborArt = frame.image);
   }
 
   void _resetInput() {
@@ -114,6 +134,7 @@ class _WorldViewState extends State<WorldView>
       oldWidget.changes.removeListener(_hostChanged);
       _resetInput();
       _attach();
+      _loadHarborArt();
     }
   }
 
@@ -122,6 +143,7 @@ class _WorldViewState extends State<WorldView>
     widget.changes.removeListener(_hostChanged);
     _ticker.dispose();
     _lifecycle.dispose();
+    _harborArt?.dispose();
     _controller.clearInput();
     _focus.dispose();
     super.dispose();
@@ -224,6 +246,8 @@ class _WorldViewState extends State<WorldView>
                           map: widget.map,
                           position: position,
                           showPlayer: error == null,
+                          drawPlayerBody: false,
+                          background: _harborArt,
                           targets: widget.interactions?.targets ?? const [],
                           landmarks: widget.landmarks,
                           openedChests: widget.host.state.quests.openedChestIds,
@@ -231,6 +255,49 @@ class _WorldViewState extends State<WorldView>
                         ),
                       ),
                     ),
+                    if (error == null)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final camera = worldCameraOffset(
+                            viewport: constraints.biggest,
+                            mapSize: Size(
+                              widget.map.width * WorldPainter.tileSize,
+                              widget.map.height * WorldPainter.tileSize,
+                            ),
+                            player: Offset(
+                              position.x * WorldPainter.tileSize,
+                              position.y * WorldPainter.tileSize,
+                            ),
+                          );
+                          return SizedBox.expand(
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  left:
+                                      camera.dx +
+                                      position.x * WorldPainter.tileSize -
+                                      WorldPainter.tileSize / 2,
+                                  top:
+                                      camera.dy +
+                                      position.y * WorldPainter.tileSize -
+                                      WorldPainter.tileSize / 2,
+                                  child: IgnorePointer(
+                                    child: ExplorationHeroSprite(
+                                      directionRow:
+                                          switch (_controller.facing) {
+                                            WalkDirection.down => 0,
+                                            WalkDirection.up => 1,
+                                            WalkDirection.left => 2,
+                                            WalkDirection.right => 3,
+                                          },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     if (error != null || !widget.host.movementEnabled)
                       ColoredBox(
                         color: const Color(0x990c171c),
@@ -319,6 +386,8 @@ class WorldPainter extends CustomPainter {
     required this.map,
     required this.position,
     this.showPlayer = true,
+    this.drawPlayerBody = true,
+    this.background,
     this.targets = const [],
     this.landmarks = const [],
     this.openedChests = const {},
@@ -327,6 +396,8 @@ class WorldPainter extends CustomPainter {
   final MapDefinition map;
   final WorldPosition position;
   final bool showPlayer;
+  final bool drawPlayerBody;
+  final ui.Image? background;
   final List<WorldTarget> targets;
   final List<WorldLandmark> landmarks;
   final Set<String> openedChests;
@@ -346,42 +417,56 @@ class WorldPainter extends CustomPainter {
     );
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
-    for (var y = 0; y < map.height; y++) {
-      for (var x = 0; x < map.width; x++) {
-        final blocked = map.blocked[y * map.width + x];
-        final rect = Rect.fromLTWH(
-          x * tileSize,
-          y * tileSize,
-          tileSize,
-          tileSize,
-        );
-        canvas.drawRect(
-          rect,
-          Paint()
-            ..color = blocked
-                ? const Color(0xff30484b)
-                : ((x + y).isEven
-                      ? const Color(0xff80917b)
-                      : const Color(0xff7a8b75)),
-        );
-        if (blocked) {
+    if (background != null && map.id == 'map.bellwether') {
+      canvas.drawImageRect(
+        background!,
+        Rect.fromLTWH(
+          0,
+          0,
+          background!.width.toDouble(),
+          background!.height.toDouble(),
+        ),
+        Rect.fromLTWH(0, 0, map.width * tileSize, map.height * tileSize),
+        Paint()..filterQuality = FilterQuality.none,
+      );
+    } else {
+      for (var y = 0; y < map.height; y++) {
+        for (var x = 0; x < map.width; x++) {
+          final blocked = map.blocked[y * map.width + x];
+          final rect = Rect.fromLTWH(
+            x * tileSize,
+            y * tileSize,
+            tileSize,
+            tileSize,
+          );
           canvas.drawRect(
-            rect.deflate(3),
-            Paint()..color = const Color(0xff4d6360),
-          );
-          canvas.drawLine(
-            rect.topLeft + const Offset(4, 4),
-            rect.topRight + const Offset(-4, 4),
+            rect,
             Paint()
-              ..color = const Color(0xff708078)
-              ..strokeWidth = 2,
+              ..color = blocked
+                  ? const Color(0xff30484b)
+                  : ((x + y).isEven
+                        ? const Color(0xff80917b)
+                        : const Color(0xff7a8b75)),
           );
-        } else {
-          canvas.drawCircle(
-            rect.topLeft + Offset(10 + (y % 3) * 8, 15 + (x % 3) * 5),
-            1.2,
-            Paint()..color = const Color(0xff687d66),
-          );
+          if (blocked) {
+            canvas.drawRect(
+              rect.deflate(3),
+              Paint()..color = const Color(0xff4d6360),
+            );
+            canvas.drawLine(
+              rect.topLeft + const Offset(4, 4),
+              rect.topRight + const Offset(-4, 4),
+              Paint()
+                ..color = const Color(0xff708078)
+                ..strokeWidth = 2,
+            );
+          } else {
+            canvas.drawCircle(
+              rect.topLeft + Offset(10 + (y % 3) * 8, 15 + (x % 3) * 5),
+              1.2,
+              Paint()..color = const Color(0xff687d66),
+            );
+          }
         }
       }
     }
@@ -480,31 +565,33 @@ class WorldPainter extends CustomPainter {
         ),
         Paint()..color = const Color(0x66304030),
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: center, width: 25, height: 25),
-          const Radius.circular(5),
-        ),
-        Paint()..color = const Color(0xfff6cb70),
-      );
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: center + const Offset(0, 4),
-          width: 25,
-          height: 5,
-        ),
-        Paint()..color = const Color(0xffb56945),
-      );
-      canvas.drawCircle(
-        center + const Offset(-4, -5),
-        2,
-        Paint()..color = const Color(0xff25353a),
-      );
-      canvas.drawCircle(
-        center + const Offset(4, -5),
-        2,
-        Paint()..color = const Color(0xff25353a),
-      );
+      if (drawPlayerBody) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: center, width: 25, height: 25),
+            const Radius.circular(5),
+          ),
+          Paint()..color = const Color(0xfff6cb70),
+        );
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: center + const Offset(0, 4),
+            width: 25,
+            height: 5,
+          ),
+          Paint()..color = const Color(0xffb56945),
+        );
+        canvas.drawCircle(
+          center + const Offset(-4, -5),
+          2,
+          Paint()..color = const Color(0xff25353a),
+        );
+        canvas.drawCircle(
+          center + const Offset(4, -5),
+          2,
+          Paint()..color = const Color(0xff25353a),
+        );
+      }
       if (targets.isNotEmpty) {
         final direction = switch (facing) {
           WalkDirection.up => const Offset(0, -19),
@@ -523,6 +610,8 @@ class WorldPainter extends CustomPainter {
       oldDelegate.map != map ||
       oldDelegate.position != position ||
       oldDelegate.showPlayer != showPlayer ||
+      oldDelegate.drawPlayerBody != drawPlayerBody ||
+      oldDelegate.background != background ||
       oldDelegate.targets != targets ||
       oldDelegate.landmarks != landmarks ||
       oldDelegate.openedChests != openedChests ||
