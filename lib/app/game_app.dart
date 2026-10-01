@@ -283,83 +283,83 @@ class _GameAppState extends State<GameApp> {
 
   Widget _onboardingCard(BuildContext context) => SafeArea(
     child: ListView(
+      key: const ValueKey('onboarding-scroll'),
       children: [
         Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            child: Semantics(
-              container: true,
-              label: 'Getting started guide',
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Welcome to Bellwether',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Start with the highlighted circle, then use the controls below. '
-                      'Every essential action also has a keyboard path.',
-                      style: TextStyle(height: 1.45),
-                    ),
-                    const SizedBox(height: 16),
-                    const Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: Semantics(
+                  container: true,
+                  label: 'Getting started guide',
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _GuideStep(
-                          icon: Icons.gamepad_outlined,
-                          title: 'Move',
-                          detail: 'Arrow keys, WASD, or touch controls',
+                        const Text(
+                          'Welcome to Bellwether',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        _GuideStep(
-                          icon: Icons.pause_circle_outline,
-                          title: 'Pause',
-                          detail: 'P, Escape, or the Pause button',
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Start with the highlighted circle, then use the controls below. '
+                          'Every essential action also has a keyboard path.',
+                          style: TextStyle(height: 1.45),
                         ),
-                        _GuideStep(
-                          icon: Icons.forum_outlined,
-                          title: 'Interact',
-                          detail: 'Follow prompts when they appear',
+                        const SizedBox(height: 16),
+                        const Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _GuideStep(
+                              icon: Icons.gamepad_outlined,
+                              title: 'Move',
+                              detail: 'Arrow keys, WASD, or touch controls',
+                            ),
+                            _GuideStep(
+                              icon: Icons.pause_circle_outline,
+                              title: 'Pause',
+                              detail: 'P, Escape, or the Pause button',
+                            ),
+                            _GuideStep(
+                              icon: Icons.forum_outlined,
+                              title: 'Interact',
+                              detail: 'Follow prompts when they appear',
+                            ),
+                            _GuideStep(
+                              icon: Icons.auto_awesome_outlined,
+                              title: 'Prepare',
+                              detail: 'Battle and job choices arrive with the story',
+                            ),
+                          ],
                         ),
-                        _GuideStep(
-                          icon: Icons.auto_awesome_outlined,
-                          title: 'Prepare',
-                          detail:
-                              'Battle and job choices arrive with the story',
+                        const SizedBox(height: 20),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton(
+                            autofocus: true,
+                            onPressed: () =>
+                                setState(() => _showOnboarding = false),
+                            child: const Text('Start exploring'),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        autofocus: true,
-                        onPressed: () =>
-                            setState(() => _showOnboarding = false),
-                        child: const Text('Start exploring'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        ),
         ),
       ],
     ),
@@ -551,7 +551,7 @@ class _GameAppState extends State<GameApp> {
                               ),
                             ),
                             TextButton(
-                          onPressed: _saveBusy ? null : _returnToTitle,
+                              onPressed: _saveBusy ? null : _returnToTitle,
                               child: const Text('End session'),
                             ),
                           ],

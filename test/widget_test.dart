@@ -168,8 +168,30 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('Welcome to Bellwether'), findsOneWidget);
-      expect(find.text('Arrow keys, WASD, or touch controls'), findsOneWidget);
-      expect(find.text('P, Escape, or the Pause button'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.textSpan?.toPlainText().contains(
+                    'Arrow keys, WASD, or touch controls',
+                  ) ==
+                  true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.textSpan?.toPlainText().contains(
+                    'P, Escape, or the Pause button',
+                  ) ==
+                  true,
+        ),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('Start exploring'));
+      await tester.pump();
       await tester.tap(find.text('Start exploring'));
       await tester.pump();
       expect(find.text('Welcome to Bellwether'), findsNothing);

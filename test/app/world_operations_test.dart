@@ -449,6 +449,8 @@ void main() {
       );
       await tester.tap(find.text('New Game'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Start exploring'));
+      await tester.pumpAndSettle();
       c.openDialogue('npc', expectedRevision: c.revision);
       await tester.pumpAndSettle();
       expect(find.text('A fixture conversation.'), findsOneWidget);
