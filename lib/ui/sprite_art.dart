@@ -22,25 +22,36 @@ class ExplorationHeroSprite extends StatelessWidget {
   final int directionRow;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 48,
-    height: 48,
-    child: ClipRect(
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Transform.translate(
-          offset: Offset(-48, -48 * directionRow.clamp(0, 3).toDouble()),
-          child: Image.asset(
-            SpriteAssets.renDirections,
-            width: 48 * 4,
-            height: 48 * 4,
-            fit: BoxFit.fill,
-            filterQuality: FilterQuality.none,
+  Widget build(BuildContext context) {
+    const frameSize = 48.0;
+    const sheetSize = frameSize * 4;
+    return SizedBox(
+      width: frameSize,
+      height: frameSize,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: sheetSize,
+          maxWidth: sheetSize,
+          minHeight: sheetSize,
+          maxHeight: sheetSize,
+          child: Transform.translate(
+            offset: Offset(
+              -frameSize,
+              -frameSize * directionRow.clamp(0, 3).toDouble(),
+            ),
+            child: Image.asset(
+              SpriteAssets.renDirections,
+              width: sheetSize,
+              height: sheetSize,
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.none,
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class ExplorationPartyArtwork extends StatelessWidget {
