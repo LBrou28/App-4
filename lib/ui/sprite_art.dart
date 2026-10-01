@@ -11,6 +11,8 @@ abstract final class SpriteAssets {
       'assets/sprites/concepts/regular-enemy-concepts.png';
   static const lanternWarden =
       'assets/sprites/concepts/lantern-warden-boss-concept.png';
+  static const bellwetherTownsfolk =
+      'assets/sprites/townsfolk/bellwether-townsfolk-v2.png';
 }
 
 /// A single frame from Ren's four-by-four exploration sheet.
@@ -51,6 +53,45 @@ class ExplorationPartyArtwork extends StatelessWidget {
     filterQuality: FilterQuality.none,
     semanticLabel: 'The four Bellwether keepers',
   );
+}
+
+/// One resident from the two-by-two Bellwether townsfolk sheet.
+class BellwetherTownspersonSprite extends StatelessWidget {
+  const BellwetherTownspersonSprite({super.key, required this.variant});
+
+  final int variant;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = variant.clamp(0, 3) ~/ 2;
+    final column = variant.clamp(0, 3) % 2;
+    const height = 52.0;
+    const cellWidth = 78.0;
+    const cropWidth = 44.0;
+    const horizontalInset = (cellWidth - cropWidth) / 2;
+    return SizedBox(
+      width: cropWidth,
+      height: height,
+      child: ClipRect(
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Transform.translate(
+            offset: Offset(
+              -(column * cellWidth + horizontalInset),
+              -row * height,
+            ),
+            child: Image.asset(
+              SpriteAssets.bellwetherTownsfolk,
+              width: cellWidth * 2,
+              height: height * 2,
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class BattlePartyArtwork extends StatelessWidget {

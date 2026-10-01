@@ -247,6 +247,7 @@ class _WorldViewState extends State<WorldView>
                           position: position,
                           showPlayer: error == null,
                           drawPlayerBody: false,
+                          hideTownNpcs: true,
                           background: _harborArt,
                           targets: widget.interactions?.targets ?? const [],
                           landmarks: widget.landmarks,
@@ -269,9 +270,34 @@ class _WorldViewState extends State<WorldView>
                               position.y * WorldPainter.tileSize,
                             ),
                           );
+                          final townsfolk =
+                              (widget.interactions?.targets ??
+                                      const <WorldTarget>[])
+                                  .where(
+                                    (target) =>
+                                        target.mapId == 'map.bellwether' &&
+                                        target.kind == WorldTargetKind.npc,
+                                  )
+                                  .toList();
                           return SizedBox.expand(
                             child: Stack(
                               children: [
+                                for (final npc in townsfolk)
+                                  Positioned(
+                                    left:
+                                        camera.dx +
+                                        (npc.x + .5) * WorldPainter.tileSize -
+                                        22,
+                                    top:
+                                        camera.dy +
+                                        (npc.y + .5) * WorldPainter.tileSize -
+                                        48,
+                                    child: IgnorePointer(
+                                      child: BellwetherTownspersonSprite(
+                                        variant: npc.id == 'npc.orrin' ? 1 : 0,
+                                      ),
+                                    ),
+                                  ),
                                 Positioned(
                                   left:
                                       camera.dx +
@@ -387,6 +413,7 @@ class WorldPainter extends CustomPainter {
     required this.position,
     this.showPlayer = true,
     this.drawPlayerBody = true,
+    this.hideTownNpcs = false,
     this.background,
     this.targets = const [],
     this.landmarks = const [],
@@ -397,6 +424,7 @@ class WorldPainter extends CustomPainter {
   final WorldPosition position;
   final bool showPlayer;
   final bool drawPlayerBody;
+  final bool hideTownNpcs;
   final ui.Image? background;
   final List<WorldTarget> targets;
   final List<WorldLandmark> landmarks;
@@ -507,7 +535,13 @@ class WorldPainter extends CustomPainter {
       )..layout();
       text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
     }
-    for (final target in targets.where((t) => t.mapId == map.id)) {
+    for (final target in targets.where(
+      (target) =>
+          target.mapId == map.id &&
+          !(hideTownNpcs &&
+              map.id == 'map.bellwether' &&
+              target.kind == WorldTargetKind.npc),
+    )) {
       final center = Offset(
         (target.x + .5) * tileSize,
         (target.y + .5) * tileSize,
@@ -611,6 +645,7 @@ class WorldPainter extends CustomPainter {
       oldDelegate.position != position ||
       oldDelegate.showPlayer != showPlayer ||
       oldDelegate.drawPlayerBody != drawPlayerBody ||
+      oldDelegate.hideTownNpcs != hideTownNpcs ||
       oldDelegate.background != background ||
       oldDelegate.targets != targets ||
       oldDelegate.landmarks != landmarks ||
