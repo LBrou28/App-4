@@ -68,3 +68,9 @@ flutter build windows --release --no-pub
 Read [AGENTS.md](AGENTS.md) before changing shared code. Use the pull request
 template to record the Trello task, dependency approvals, and actual test results.
 The primary demo is a browser at a minimum 1280 x 720 viewport; Windows is secondary.
+
+## Lantern Link local co-op server
+
+The T3 server component is documented in
+[`docs/t3-lantern-link.md`](docs/t3-lantern-link.md). Start a local-network
+room with `dart run bin/lantern_link_server.dart --room bellwether`.

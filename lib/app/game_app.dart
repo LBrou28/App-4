@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../core/contracts.dart';
 import '../battle/ui/battle_screen.dart';
+import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
+import '../ui/lantern_link_dialog.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
 
@@ -35,6 +37,7 @@ class GameApp extends StatefulWidget {
 
 class _GameAppState extends State<GameApp> {
   late final AppController _controller;
+  late final LanternLinkClient _lanternLink;
   late final AppLifecycleListener _lifecycle;
   final _navigator = GlobalKey<NavigatorState>();
   DialogRoute<DialogueDismissal>? _dialogueRoute;
@@ -216,6 +219,17 @@ class _GameAppState extends State<GameApp> {
     });
   }
 
+  Future<void> _showLanternLink() => showDialog<void>(
+    context: _navigator.currentContext!,
+    builder: (_) => LanternLinkDialog(client: _lanternLink),
+  );
+
+  void _syncLanternLink() {
+    if (_controller.mode == AppMode.exploration && !_controller.paused) {
+      _lanternLink.publishExploration(_controller.state);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -225,7 +239,9 @@ class _GameAppState extends State<GameApp> {
       saves: widget.saves,
     );
     _refreshSave();
+    _lanternLink = LanternLinkClient();
     _controller.addListener(_scheduleDialogue);
+    _controller.addListener(_syncLanternLink);
     _lifecycle = AppLifecycleListener(
       onInactive: () => _controller.setPaused(true),
       onHide: () => _controller.setPaused(true),
@@ -238,7 +254,9 @@ class _GameAppState extends State<GameApp> {
     _lifecycle.dispose();
     _worldFocus.dispose();
     _controller.removeListener(_scheduleDialogue);
+    _controller.removeListener(_syncLanternLink);
     _controller.dispose();
+    _lanternLink.dispose();
     super.dispose();
   }
 
@@ -315,6 +333,11 @@ class _GameAppState extends State<GameApp> {
                 title: Text(widget.title),
                 actions: [
                   IconButton(
+                    tooltip: 'Lantern Link multiplayer',
+                    onPressed: _showLanternLink,
+                    icon: const Icon(Icons.group_outlined),
+                  ),
+                  IconButton(
                     tooltip: 'Help and controls',
                     onPressed: _showHelp,
                     icon: const Icon(Icons.help_outline),
@@ -365,6 +388,10 @@ class _GameAppState extends State<GameApp> {
                           FilledButton(
                             onPressed: _startNewGame,
                             child: const Text('New Game'),
+                          ),
+                          OutlinedButton(
+                            onPressed: _showLanternLink,
+                            child: const Text('Lantern Link'),
                           ),
                           if (_availability is SaveLoaded)
                             OutlinedButton(
@@ -465,7 +492,7 @@ class _GameAppState extends State<GameApp> {
                               ),
                             ),
                             TextButton(
-                          onPressed: _saveBusy ? null : _returnToTitle,
+                              onPressed: _saveBusy ? null : _returnToTitle,
                               child: const Text('End session'),
                             ),
                           ],
