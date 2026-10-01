@@ -6,6 +6,7 @@ import '../battle/ui/battle_screen.dart';
 import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
 import '../ui/lantern_link_dialog.dart';
+import '../ui/sprite_art.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
 
@@ -260,7 +261,12 @@ class _GameAppState extends State<GameApp> {
     super.dispose();
   }
 
-  Widget _panel(String title, String message, List<Widget> actions) => Center(
+  Widget _panel(
+    String title,
+    String message,
+    List<Widget> actions, {
+    Widget? artwork,
+  }) => Center(
     child: SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -269,6 +275,10 @@ class _GameAppState extends State<GameApp> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (artwork != null) ...[
+                SizedBox(height: 180, child: artwork),
+                const SizedBox(height: 12),
+              ],
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -417,6 +427,7 @@ class _GameAppState extends State<GameApp> {
                             child: const Text('Cancel'),
                           ),
                         ],
+                        artwork: const ExplorationPartyArtwork(),
                       ),
                     ),
                   if (_controller.mode == AppMode.error)
