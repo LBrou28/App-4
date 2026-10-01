@@ -42,6 +42,7 @@ class _GameAppState extends State<GameApp> {
   bool _dialogueSyncPending = false;
   MapDefinition? _viewMap;
   Widget? _world;
+  bool _showOnboarding = false;
   final _worldFocus = FocusScopeNode(debugLabel: 'A2 world focus');
   LoadResult? _availability;
   bool _saveBusy = false;
@@ -211,6 +212,7 @@ class _GameAppState extends State<GameApp> {
   Future<void> _startNewGame() async {
     await _controller.newGame();
     if (!mounted || _controller.mode != AppMode.exploration) return;
+    setState(() => _showOnboarding = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _controller.movementEnabled) _worldFocus.requestFocus();
     });
@@ -276,6 +278,90 @@ class _GameAppState extends State<GameApp> {
           ),
         ),
       ),
+    ),
+  );
+
+  Widget _onboardingCard(BuildContext context) => SafeArea(
+    child: ListView(
+      key: const ValueKey('onboarding-scroll'),
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                child: Semantics(
+                  container: true,
+                  label: 'Getting started guide',
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Welcome to Bellwether',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Start with the highlighted circle, then use the controls below. '
+                          'Every essential action also has a keyboard path.',
+                          style: TextStyle(height: 1.45),
+                        ),
+                        const SizedBox(height: 16),
+                        const Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _GuideStep(
+                              icon: Icons.gamepad_outlined,
+                              title: 'Move',
+                              detail: 'Arrow keys, WASD, or touch controls',
+                            ),
+                            _GuideStep(
+                              icon: Icons.pause_circle_outline,
+                              title: 'Pause',
+                              detail: 'P, Escape, or the Pause button',
+                            ),
+                            _GuideStep(
+                              icon: Icons.forum_outlined,
+                              title: 'Interact',
+                              detail: 'Follow prompts when they appear',
+                            ),
+                            _GuideStep(
+                              icon: Icons.auto_awesome_outlined,
+                              title: 'Prepare',
+                              detail: 'Battle and job choices arrive with the story',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton(
+                            autofocus: true,
+                            onPressed: () =>
+                                setState(() => _showOnboarding = false),
+                            child: const Text('Start exploring'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -465,19 +551,56 @@ class _GameAppState extends State<GameApp> {
                               ),
                             ),
                             TextButton(
-                          onPressed: _saveBusy ? null : _returnToTitle,
+                              onPressed: _saveBusy ? null : _returnToTitle,
                               child: const Text('End session'),
                             ),
                           ],
                         ),
                       ),
                     ),
+                  if (exploring && _showOnboarding) _onboardingCard(context),
                 ],
               ),
             );
           },
         ),
       ),
+    ),
+  );
+}
+
+class _GuideStep extends StatelessWidget {
+  const _GuideStep({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 245,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$title\n',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: detail),
+              ],
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }

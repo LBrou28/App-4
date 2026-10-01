@@ -272,6 +272,8 @@ void main() {
       await tester.tap(find.text('New Game'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Start exploring'));
+      await tester.pump();
       final app =
           tester.widget<WorldView>(find.byType(WorldView)).host
               as AppController;

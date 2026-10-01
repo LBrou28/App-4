@@ -362,6 +362,8 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      await tester.tap(find.text('Start exploring'));
+      await tester.pump();
       final view = tester.widget<WorldView>(find.byType(WorldView));
       final c = view.host as AppController;
       final position = c.state.position;
