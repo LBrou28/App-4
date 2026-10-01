@@ -17,6 +17,18 @@ The server prints a WebSocket address such as
 name to the other local players. It binds to the local network intentionally;
 use a trusted classroom/home network only.
 
+## Join from the game
+
+Run the Flutter game in Chrome, choose **Lantern Link** from the title screen
+or the group icon in the app bar, then enter the server address and a player
+name. The first player is the host. The host chooses a two- or four-player
+room after everyone joins, then uses **Assign heroes and begin exploration**.
+
+The lobby shows the authoritative player list and assignments to every joined
+browser. The host's exploration state is published to the room; guests receive
+that state without movement controls. In the shared training battle, each
+player has Attack/Defend buttons only for their own heroes.
+
 ## Protocol
 
 Messages are JSON objects. Every successful request broadcasts a message whose
