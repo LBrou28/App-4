@@ -360,6 +360,7 @@ class _GameAppState extends State<GameApp> {
           ),
         ),
         ),
+        ),
       ],
     ),
   );
