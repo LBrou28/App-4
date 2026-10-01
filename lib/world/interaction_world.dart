@@ -179,8 +179,9 @@ final class InteractionWorld {
         {'entry': (19, 8), 'from_causeway': (19, 8)},
         {
           // Bellwether's harbor artwork is authored as a 25 x 20 tile scene.
-          // Keep collision to the solid buildings and central monument so visual
-          // walls and blocked movement describe the same spaces.
+          // Keep collision to the solid buildings so visual walls and blocked
+          // movement describe the same spaces. The central monument remains
+          // walkable around its base for Mara's adjacent dialogue position.
           for (var x = 6; x <= 9; x++)
             for (var y = 1; y <= 3; y++) (x, y),
           for (var x = 2; x <= 4; x++)
@@ -189,8 +190,6 @@ final class InteractionWorld {
             for (var y = 2; y <= 4; y++) (x, y),
           for (var x = 15; x <= 18; x++)
             for (var y = 7; y <= 9; y++) (x, y),
-          for (var x = 10; x <= 11; x++)
-            for (var y = 9; y <= 10; y++) (x, y),
         },
       ),
       route: _map(
