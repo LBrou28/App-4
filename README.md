@@ -72,5 +72,36 @@ The primary demo is a browser at a minimum 1280 x 720 viewport; Windows is secon
 ## Lantern Link local co-op server
 
 The T3 server component is documented in
-[`docs/t3-lantern-link.md`](docs/t3-lantern-link.md). Start a local-network
-room with `dart run bin/lantern_link_server.dart --room bellwether`.
+[`docs/t3-lantern-link.md`](docs/t3-lantern-link.md). To play on a local
+network, use two terminals on the host computer after running `flutter pub get`.
+
+In the first terminal, serve the browser game on every network interface:
+
+```sh
+flutter run -d web-server --web-hostname 0.0.0.0 --web-port 7360
+```
+
+In the second terminal, start Lantern Link's WebSocket server:
+
+```sh
+dart run bin/lantern_link_server.dart --port 8088
+```
+
+On the other computer, open the host computer's LAN address and browser-game
+port. For example, if the host LAN IP is `192.168.0.96`, open:
+
+```text
+http://192.168.0.96:7360
+```
+
+Open the game on both computers. In **Lantern Link**, replace `localhost` with
+the host LAN IP and keep port `8088` unless you deliberately started the server
+with a different port:
+
+```text
+ws://192.168.0.96:8088/lantern-link
+```
+
+Have both players join the same room, then the host starts a new game. The guest
+screen mirrors the host's exploration state and participates in shared battles
+with the heroes assigned in the Lantern Link lobby.
