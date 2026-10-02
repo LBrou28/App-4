@@ -110,6 +110,27 @@ void main() {
     );
     expect(guest.setPaused(true), isFalse);
   });
+  test('remote movement updates reuse the validated world session', () async {
+    var loads = 0;
+    final guest = AppController(
+      loadWorld: () async {
+        loads++;
+        return session();
+      },
+    );
+    addTearDown(guest.dispose);
+    final first = createContractFixture();
+    final second = GameState(
+      position: const WorldPosition(mapId: 'b1.practice', x: 3.5, y: 2.5),
+      party: first.party,
+      inventory: first.inventory,
+      gold: first.gold,
+      quests: first.quests,
+    );
+    expect(await guest.applyRemoteExplorationState(first), isTrue);
+    expect(await guest.applyRemoteExplorationState(second), isTrue);
+    expect(loads, 1);
+  });
   test(
     'cancelled load cannot overwrite a newer session and revisions never reset',
     () async {

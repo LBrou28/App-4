@@ -68,6 +68,7 @@ class AppController extends ChangeNotifier
   int get revision => _revision;
   AppMode get mode => _mode;
   bool get paused => _paused;
+
   /// A Lantern Link guest renders the host's authoritative state but cannot
   /// mutate the local exploration session.
   bool get remoteReadOnly => _remoteReadOnly;
@@ -222,7 +223,10 @@ class AppController extends ChangeNotifier
     if (!_canWrite || _mode == AppMode.loading) return false;
     final generation = ++_loadGeneration;
     try {
-      final loaded = await loadWorld();
+      // Movement snapshots arrive frequently. Once a guest has a validated
+      // world session, reuse it instead of reloading artwork/map data for
+      // every authoritative position update.
+      final loaded = _session ?? await loadWorld();
       if (_disposed || generation != _loadGeneration) return false;
       final area = remote.position.mapId == loaded.map.id
           ? WorldArea(map: loaded.map, isClear: loaded.isClear)
