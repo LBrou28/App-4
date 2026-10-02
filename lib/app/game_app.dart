@@ -49,6 +49,8 @@ class _GameAppState extends State<GameApp> {
   LoadResult? _availability;
   bool _saveBusy = false;
   String? _saveMessage;
+  bool _remoteSyncPending = false;
+  int? _appliedRemoteRevision;
 
   Future<void> _refreshSave() async {
     final result = await _controller.readSave();
@@ -145,6 +147,7 @@ class _GameAppState extends State<GameApp> {
   }
 
   void _togglePause() {
+    if (_controller.remoteReadOnly) return;
     if (_controller.mode != AppMode.exploration &&
         _controller.mode != AppMode.battle) {
       return;
@@ -230,6 +233,31 @@ class _GameAppState extends State<GameApp> {
     }
   }
 
+  void _syncRemoteLanternLink() {
+    final snapshot = _lanternLink.snapshot;
+    if (snapshot == null ||
+        _lanternLink.isHost ||
+        snapshot.phase != 'exploration' ||
+        _remoteSyncPending ||
+        _appliedRemoteRevision == snapshot.revision) {
+      return;
+    }
+    _applyRemoteSnapshot(snapshot);
+  }
+
+  Future<void> _applyRemoteSnapshot(
+    LanternLinkClientSnapshot snapshot,
+  ) async {
+    _remoteSyncPending = true;
+    try {
+      await _controller.applyRemoteExplorationState(snapshot.gameState);
+      _appliedRemoteRevision = snapshot.revision;
+    } finally {
+      _remoteSyncPending = false;
+      if (mounted) _syncRemoteLanternLink();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -242,6 +270,7 @@ class _GameAppState extends State<GameApp> {
     _lanternLink = LanternLinkClient();
     _controller.addListener(_scheduleDialogue);
     _controller.addListener(_syncLanternLink);
+    _lanternLink.addListener(_syncRemoteLanternLink);
     _lifecycle = AppLifecycleListener(
       onInactive: () => _controller.setPaused(true),
       onHide: () => _controller.setPaused(true),
@@ -255,6 +284,7 @@ class _GameAppState extends State<GameApp> {
     _worldFocus.dispose();
     _controller.removeListener(_scheduleDialogue);
     _controller.removeListener(_syncLanternLink);
+    _lanternLink.removeListener(_syncRemoteLanternLink);
     _controller.dispose();
     _lanternLink.dispose();
     super.dispose();
@@ -349,6 +379,7 @@ class _GameAppState extends State<GameApp> {
                   ),
                   if (exploring &&
                       !_controller.paused &&
+                      !_controller.remoteReadOnly &&
                       widget.trainingEncounterId != null)
                     TextButton(
                       onPressed: () => _controller.requestEncounter(
@@ -359,7 +390,7 @@ class _GameAppState extends State<GameApp> {
                       ),
                       child: const Text('Training battle'),
                     ),
-                  if (exploring || battling)
+                  if ((exploring || battling) && !_controller.remoteReadOnly)
                     TextButton(
                       onPressed: _togglePause,
                       child: Text(_controller.paused ? 'Resume' : 'Pause'),

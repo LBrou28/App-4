@@ -55,6 +55,7 @@ class AppController extends ChangeNotifier
   int _revision = 0;
   int _loadGeneration = 0;
   bool _paused = false;
+  bool _remoteReadOnly = false;
   bool _musicEnabled = true;
   bool _effectsEnabled = true;
   bool _disposed = false;
@@ -67,13 +68,19 @@ class AppController extends ChangeNotifier
   int get revision => _revision;
   AppMode get mode => _mode;
   bool get paused => _paused;
+  /// A Lantern Link guest renders the host's authoritative state but cannot
+  /// mutate the local exploration session.
+  bool get remoteReadOnly => _remoteReadOnly;
   bool get musicEnabled => _musicEnabled;
   bool get effectsEnabled => _effectsEnabled;
   String? get error => _error;
   MapDefinition? get map => _area?.map;
   @override
   bool get movementEnabled =>
-      !_disposed && _mode == AppMode.exploration && !_paused;
+      !_disposed &&
+      _mode == AppMode.exploration &&
+      !_paused &&
+      !_remoteReadOnly;
   bool get _canWrite => !_disposed && !_notifying && !_checking && !_saving;
 
   Future<LoadResult> readSave() async =>
@@ -87,6 +94,7 @@ class AppController extends ChangeNotifier
     if (!_canWrite ||
         _mode != AppMode.exploration ||
         !_paused ||
+        _remoteReadOnly ||
         repository == null ||
         version == null) {
       return SaveWriteFailed('Saving is unavailable right now.');
@@ -136,6 +144,7 @@ class AppController extends ChangeNotifier
       _dialogue = null;
       _postBattleDialogue = null;
       _battle = null;
+      _remoteReadOnly = false;
       _paused = false;
       _error = null;
       _mode = AppMode.exploration;
@@ -164,6 +173,7 @@ class AppController extends ChangeNotifier
     _dialogue = null;
     _postBattleDialogue = null;
     _battle = null;
+    _remoteReadOnly = false;
     _mode = AppMode.loading;
     _paused = false;
     _error = null;
@@ -188,8 +198,50 @@ class AppController extends ChangeNotifier
     }
   }
 
+  /// Applies a validated exploration snapshot received from the Lantern Link
+  /// server. This intentionally reuses the normal world loader and its
+  /// geometry/content checks rather than trusting network data at the UI edge.
+  ///
+  /// Once applied, the controller is read-only until a local session starts.
+  Future<bool> applyRemoteExplorationState(GameState remote) async {
+    if (!_canWrite || _mode == AppMode.loading) return false;
+    final generation = ++_loadGeneration;
+    try {
+      final loaded = await loadWorld();
+      if (_disposed || generation != _loadGeneration) return false;
+      final area = remote.position.mapId == loaded.map.id
+          ? WorldArea(map: loaded.map, isClear: loaded.isClear)
+          : loaded.operations.areas[remote.position.mapId];
+      if (area == null ||
+          !_check(() => area.isClear(remote.position)) ||
+          remote.party.length != loaded.initialState.party.length ||
+          !remote.party.asMap().entries.every(
+            (entry) =>
+                entry.value.id == loaded.initialState.party[entry.key].id,
+          ) ||
+          loaded.validateSavedState?.call(remote) == false) {
+        return false;
+      }
+      _session = loaded;
+      _area = area;
+      _state = remote;
+      _dialogue = null;
+      _postBattleDialogue = null;
+      _battle = null;
+      _paused = false;
+      _remoteReadOnly = true;
+      _error = null;
+      _mode = AppMode.exploration;
+      _publish();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   bool setPaused(bool value) {
     if (!_canWrite ||
+        _remoteReadOnly ||
         (_mode != AppMode.exploration &&
             _mode != AppMode.dialogue &&
             _mode != AppMode.battle) ||
@@ -223,6 +275,7 @@ class AppController extends ChangeNotifier
     _dialogue = null;
     _postBattleDialogue = null;
     _battle = null;
+    _remoteReadOnly = false;
     _mode = AppMode.title;
     _paused = false;
     _error = null;

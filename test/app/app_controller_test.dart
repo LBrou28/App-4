@@ -87,6 +87,29 @@ void main() {
     expect(c.setMusicEnabled(false), isFalse);
     expect(c.setEffectsEnabled(false), isFalse);
   });
+  test('remote exploration state is validated then kept read-only', () async {
+    final host = AppController(loadWorld: () async => session());
+    final guest = AppController(loadWorld: () async => session());
+    addTearDown(host.dispose);
+    addTearDown(guest.dispose);
+    await host.newGame();
+    final position = WorldPosition(mapId: host.map!.id, x: 3.5, y: 2.5);
+    expect(
+      host.updatePosition(position, expectedRevision: host.revision),
+      isTrue,
+    );
+
+    expect(await guest.applyRemoteExplorationState(host.state), isTrue);
+    expect(guest.mode, AppMode.exploration);
+    expect(guest.state.position, same(position));
+    expect(guest.remoteReadOnly, isTrue);
+    expect(guest.movementEnabled, isFalse);
+    expect(
+      guest.updatePosition(position, expectedRevision: guest.revision),
+      isFalse,
+    );
+    expect(guest.setPaused(true), isFalse);
+  });
   test(
     'cancelled load cannot overwrite a newer session and revisions never reset',
     () async {
