@@ -35,6 +35,8 @@ void main() {
       await tester.pumpWidget(
         GameApp(loadWorld: () async => session(), buildWorld: worldViewBuilder),
       );
+      expect(find.text('LANTERN WAKE'), findsOneWidget);
+      expect(find.text('A tale from the Saltglass Coast'), findsOneWidget);
       await tester.tap(find.text('New Game'));
       await tester.pump();
       await tester.pump();
@@ -49,6 +51,10 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
       await tester.pump();
       expect(find.text('Paused'), findsOneWidget);
+      expect(
+        find.textContaining('an ancient bell has begun to stir'),
+        findsOneWidget,
+      );
       final stopped = host.state.position.x;
       await tester.pump(const Duration(milliseconds: 100));
       expect(host.state.position.x, stopped);

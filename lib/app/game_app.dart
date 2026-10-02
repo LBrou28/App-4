@@ -21,6 +21,7 @@ class GameApp extends StatefulWidget {
     this.battleTitle = 'Battle',
     this.title = 'App-4 • Practice world',
     this.introduction = 'Explore the practice grounds with arrow keys, WASD or the on-screen controls.\n\nThis early build supports exploration. Battles and saving are coming later.',
+    this.pauseMessage = 'Beyond Bellwether Harbor, an ancient bell has begun to stir beneath the tide. Its echo calls lost souls from the deep, and the harbor lanterns are fading one by one.\n\nFollow the lantern light, mend the broken way through the Cistern, and bring the sea’s restless song to an end.',
   });
   final Map<String, BattleFactory> battles;
   final SaveRepository? saves;
@@ -29,6 +30,7 @@ class GameApp extends StatefulWidget {
   final String battleTitle;
   final String title;
   final String introduction;
+  final String pauseMessage;
   final WorldLoader loadWorld;
   final WorldViewBuilder Function(MapDefinition map) buildWorld;
   @override
@@ -306,6 +308,130 @@ class _GameAppState extends State<GameApp> {
     ),
   );
 
+  Widget _titleScreen() => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xff081722), Color(0xff102c3a), Color(0xff231a32)],
+      ),
+    ),
+    child: Stack(
+      children: [
+        const Positioned(
+          top: -120,
+          right: -80,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x2279d7d1),
+            ),
+            child: SizedBox(width: 340, height: 340),
+          ),
+        ),
+        const Positioned(
+          left: 32,
+          right: 32,
+          bottom: 48,
+          child: Divider(color: Color(0xffd8b66e), thickness: 2),
+        ),
+        SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.nightlight_round,
+                      color: Color(0xffffd987),
+                      size: 44,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'LANTERN WAKE',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xffffe2a6),
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 4,
+                        shadows: [
+                          Shadow(
+                            color: Color(0xff000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'A tale from the Saltglass Coast',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xffa8d7d4),
+                        fontSize: 17,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(color: Color(0xffd8b66e)),
+                    ),
+                    Text(
+                      widget.introduction,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xffe6eee9),
+                        fontSize: 17,
+                        height: 1.55,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _startNewGame,
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('New Game'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _showLanternLink,
+                          icon: const Icon(Icons.group_outlined),
+                          label: const Text('Lantern Link'),
+                        ),
+                        if (_availability is SaveLoaded)
+                          OutlinedButton.icon(
+                            onPressed: _continueGame,
+                            icon: const Icon(Icons.menu_book_outlined),
+                            label: const Text('Continue'),
+                          ),
+                      ],
+                    ),
+                    if (_availability is SaveUnreadable)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: Text(
+                          'The saved journey cannot be read on this version.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigator,
@@ -389,31 +515,7 @@ class _GameAppState extends State<GameApp> {
                       ),
                     ),
                   if (_controller.mode == AppMode.title)
-                    Positioned.fill(
-                      child: _panel(
-                        'A new adventure begins',
-                        widget.introduction,
-                        [
-                          FilledButton(
-                            onPressed: _startNewGame,
-                            child: const Text('New Game'),
-                          ),
-                          OutlinedButton(
-                            onPressed: _showLanternLink,
-                            child: const Text('Lantern Link'),
-                          ),
-                          if (_availability is SaveLoaded)
-                            OutlinedButton(
-                              onPressed: _continueGame,
-                              child: const Text('Continue'),
-                            ),
-                          if (_availability is SaveUnreadable)
-                            const Text(
-                              'The saved journey cannot be read on this version.',
-                            ),
-                        ],
-                      ),
-                    ),
+                    Positioned.fill(child: _titleScreen()),
                   if (_controller.mode == AppMode.loading)
                     Positioned.fill(
                       child: _panel(
@@ -480,32 +582,26 @@ class _GameAppState extends State<GameApp> {
                     Positioned.fill(
                       child: ColoredBox(
                         color: const Color(0xff102027),
-                        child: _panel(
-                          'Paused',
-                          'Your position is kept while paused. Save here to continue this journey after closing the game.',
-                          [
-                            if (exploring && widget.saves != null)
-                              FilledButton.tonal(
-                                onPressed: _saveBusy ? null : _saveGame,
-                                child: Text(
-                                  _saveBusy ? 'Saving…' : 'Save game',
-                                ),
-                              ),
-                            if (_saveMessage != null) Text(_saveMessage!),
-                            FilledButton(
-                              onPressed: _saveBusy ? null : _resume,
-                              child: Text(
-                                battling
-                                    ? 'Continue battle'
-                                    : 'Continue exploring',
-                              ),
+                        child: _panel('Paused', widget.pauseMessage, [
+                          if (exploring && widget.saves != null)
+                            FilledButton.tonal(
+                              onPressed: _saveBusy ? null : _saveGame,
+                              child: Text(_saveBusy ? 'Saving…' : 'Save game'),
                             ),
-                            TextButton(
-                              onPressed: _saveBusy ? null : _returnToTitle,
-                              child: const Text('End session'),
+                          if (_saveMessage != null) Text(_saveMessage!),
+                          FilledButton(
+                            onPressed: _saveBusy ? null : _resume,
+                            child: Text(
+                              battling
+                                  ? 'Continue battle'
+                                  : 'Continue exploring',
                             ),
-                          ],
-                        ),
+                          ),
+                          TextButton(
+                            onPressed: _saveBusy ? null : _returnToTitle,
+                            child: const Text('End session'),
+                          ),
+                        ]),
                       ),
                     ),
                 ],
