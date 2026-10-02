@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
 import '../../ui/game_theme.dart';
+import '../../ui/sprite_art.dart';
 import '../battle.dart';
 import '../battle_session.dart';
 import 'battle_controller.dart';
@@ -161,6 +162,11 @@ class _BattleScreenState extends State<BattleScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 20),
+              SizedBox(
+                height: _controller.session.isBoss ? 220 : 150,
+                child: EncounterArtwork(isBoss: _controller.session.isBoss),
+              ),
+              const SizedBox(height: 16),
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 16,
@@ -216,6 +222,8 @@ class _BattleScreenState extends State<BattleScreen> {
           ),
         ),
         const SizedBox(height: 20),
+        SizedBox(height: 150, child: const BattlePartyArtwork()),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(

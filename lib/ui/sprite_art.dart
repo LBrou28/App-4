@@ -84,8 +84,12 @@ class BellwetherTownspersonSprite extends StatelessWidget {
       width: cropWidth,
       height: height,
       child: ClipRect(
-        child: Align(
+        child: OverflowBox(
           alignment: Alignment.topLeft,
+          minWidth: cellWidth * 2,
+          maxWidth: cellWidth * 2,
+          minHeight: height * 2,
+          maxHeight: height * 2,
           child: Transform.translate(
             offset: Offset(
               -(column * cellWidth + horizontalInset),
