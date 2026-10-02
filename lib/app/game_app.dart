@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/contracts.dart';
 import '../battle/ui/battle_screen.dart';
+import '../multiplayer/lantern_link.dart';
 import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
 import '../ui/lantern_link_dialog.dart';
@@ -255,7 +256,9 @@ class _GameAppState extends State<GameApp> {
   void _syncRemoteDialogue() {
     final snapshot = _lanternLink.snapshot;
     final dialogue = _lanternLink.isHost ? null : snapshot?.dialogue;
-    final key = dialogue == null ? null : '${snapshot!.revision}:${dialogue.id}';
+    final key = dialogue == null
+        ? null
+        : '${snapshot!.revision}:${dialogue.id}';
     if (key == _shownRemoteDialogue) return;
     final navigator = _navigator.currentState;
     if (navigator == null) return;
@@ -269,10 +272,7 @@ class _GameAppState extends State<GameApp> {
       barrierDismissible: true,
       builder: (context) => AlertDialog(
         title: Text(dialogue.speaker),
-        content: SizedBox(
-          width: 480,
-          child: Text(dialogue.lines.join('\n\n')),
-        ),
+        content: SizedBox(width: 480, child: Text(dialogue.lines.join('\n\n'))),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
@@ -301,9 +301,7 @@ class _GameAppState extends State<GameApp> {
     _applyRemoteSnapshot(snapshot);
   }
 
-  Future<void> _applyRemoteSnapshot(
-    LanternLinkClientSnapshot snapshot,
-  ) async {
+  Future<void> _applyRemoteSnapshot(LanternLinkClientSnapshot snapshot) async {
     _remoteSyncPending = true;
     try {
       await _controller.applyRemoteExplorationState(snapshot.gameState);
@@ -618,9 +616,12 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
         Map<String, dynamic>.from(raw as Map),
     ];
     final enemies = combatants
-        .where((value) => value['side'] == 'enemies' && (value['hp'] as int) > 0)
+        .where(
+          (value) => value['side'] == 'enemies' && (value['hp'] as int) > 0,
+        )
         .toList();
-    final owned = (snapshot.assignments[client.playerId] ?? const <String>[]).toSet();
+    final owned = (snapshot.assignments[client.playerId] ?? const <String>[])
+        .toSet();
     return Material(
       color: const Color(0xff102027),
       child: SafeArea(
@@ -629,36 +630,57 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Shared battle • Round ${battle['round']}',
-                  style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Shared battle • Round ${battle['round']}',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const SizedBox(height: 20),
               Expanded(
                 child: ListView(
                   children: [
                     for (final value in combatants)
                       ListTile(
-                        title: Text(names[value['id']] ?? value['id'] as String),
-                        subtitle: Text('${value['side']} • HP ${value['hp']} / ${value['maxHp']}'),
+                        title: Text(
+                          names[value['id']] ?? value['id'] as String,
+                        ),
+                        subtitle: Text(
+                          '${value['side']} • HP ${value['hp']} / ${value['maxHp']}',
+                        ),
                       ),
                   ],
                 ),
               ),
               for (final hero in combatants.where(
-                (value) => value['side'] == 'heroes' && owned.contains(value['id']) && (value['hp'] as int) > 0,
+                (value) =>
+                    value['side'] == 'heroes' &&
+                    owned.contains(value['id']) &&
+                    (value['hp'] as int) > 0,
               ))
                 Row(
                   children: [
-                    Expanded(child: Text(names[hero['id']] ?? hero['id'] as String)),
-                    OutlinedButton(onPressed: () => client.defend(hero['id'] as String), child: const Text('Defend')),
+                    Expanded(
+                      child: Text(names[hero['id']] ?? hero['id'] as String),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => client.defend(hero['id'] as String),
+                      child: const Text('Defend'),
+                    ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: enemies.isEmpty ? null : () => client.attack(hero['id'] as String, enemies.first['id'] as String),
+                      onPressed: enemies.isEmpty
+                          ? null
+                          : () => client.attack(
+                              hero['id'] as String,
+                              enemies.first['id'] as String,
+                            ),
                       child: const Text('Attack'),
                     ),
                   ],
                 ),
               const SizedBox(height: 12),
-              const Text('Choose actions only for your assigned heroes. The server resolves the round for everyone.'),
+              const Text(
+                'Choose actions only for your assigned heroes. The server resolves the round for everyone.',
+              ),
             ],
           ),
         ),
