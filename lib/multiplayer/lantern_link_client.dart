@@ -85,14 +85,12 @@ final class LanternLinkClient extends ChangeNotifier {
     });
   }
 
-  void startEncounter({
-    String definitionId = 'enemy.brine_mite',
-    int? seed,
-  }) => _send({
-    'type': 'battleStart',
-    'definitionId': definitionId,
-    'seed': seed ?? DateTime.now().microsecondsSinceEpoch,
-  });
+  void startEncounter({String definitionId = 'enemy.brine_mite', int? seed}) =>
+      _send({
+        'type': 'battleStart',
+        'definitionId': definitionId,
+        'seed': seed ?? DateTime.now().microsecondsSinceEpoch,
+      });
 
   void attack(String actorId, String targetId) =>
       _command({'actorId': actorId, 'action': 'attack', 'targetId': targetId});
@@ -151,8 +149,9 @@ final class LanternLinkClient extends ChangeNotifier {
         final queuedDialogue = _queuedDialogue;
         _queuedExploration = null;
         _queuedDialogue = null;
-        if (queued != null)
+        if (queued != null) {
           publishExploration(queued, dialogue: queuedDialogue);
+        }
       }
     } catch (_) {
       _error = 'Received an unreadable server message.';

@@ -132,8 +132,9 @@ void main() {
     expect(LanternBalance.encounters.keys, route);
     expect(LanternBalance.encounters['enemy.hollow_bell']!.isBoss, isTrue);
     expect(
-      LanternBalance.encounters['enemy.hollow_bell']!.pattern
-          .map((move) => move.kind),
+      LanternBalance.encounters['enemy.hollow_bell']!.pattern.map(
+        (move) => move.kind,
+      ),
       [EnemyMoveKind.spell, EnemyMoveKind.defend],
     );
     expect(
@@ -146,12 +147,7 @@ void main() {
 
   for (final jobs in [
     const ['job.warrior', 'job.monk', 'job.white_mage', 'job.black_mage'],
-    const [
-      'job.warrior',
-      'job.warrior',
-      'job.white_mage',
-      'job.black_mage',
-    ],
+    const ['job.warrior', 'job.warrior', 'job.white_mage', 'job.black_mage'],
   ]) {
     test('fresh ${jobs.join(', ')} party clears the tuned route', () {
       final balance = LanternBalance();
@@ -199,19 +195,21 @@ void main() {
       ]),
     );
     expect(
-      battle.events.where((event) => event.actorId == 'hero.tavi').any(
-        (event) => event.kind == BattleEventKind.spell,
-      ),
+      battle.events
+          .where((event) => event.actorId == 'hero.tavi')
+          .any((event) => event.kind == BattleEventKind.spell),
       isTrue,
     );
     expect(
-      battle.events.where((event) => event.actorId == 'hero.ada').any(
-        (event) => event.kind == BattleEventKind.attack,
-      ),
+      battle.events
+          .where((event) => event.actorId == 'hero.ada')
+          .any((event) => event.kind == BattleEventKind.attack),
       isTrue,
     );
     expect(
-      battle.events.where((event) => event.actorId == 'enemy.hollow_bell').length,
+      battle.events
+          .where((event) => event.actorId == 'enemy.hollow_bell')
+          .length,
       greaterThanOrEqualTo(4),
     );
   });
@@ -247,32 +245,34 @@ void main() {
       'job.white_mage',
       'job.black_mage',
     ]);
-    final defeated = balance.createSession(
-      inputFor(
-        shared.GameState(
-          position: defeatedState.position,
-          party: [
-            for (final member in defeatedState.party)
-              shared.PartyMember(
-                id: member.id,
-                jobId: member.jobId,
-                hp: 0,
-                maxHp: member.maxHp,
-                mp: member.mp,
-                maxMp: member.maxMp,
-                level: member.level,
-                experience: member.experience,
-                jobProgress: member.jobProgress,
-                equipment: member.equipment,
-              ),
-          ],
-          inventory: defeatedState.inventory,
-          gold: defeatedState.gold,
-          quests: defeatedState.quests,
-        ),
-        'enemy.brine_mite',
-      ),
-    ).result!;
+    final defeated = balance
+        .createSession(
+          inputFor(
+            shared.GameState(
+              position: defeatedState.position,
+              party: [
+                for (final member in defeatedState.party)
+                  shared.PartyMember(
+                    id: member.id,
+                    jobId: member.jobId,
+                    hp: 0,
+                    maxHp: member.maxHp,
+                    mp: member.mp,
+                    maxMp: member.maxMp,
+                    level: member.level,
+                    experience: member.experience,
+                    jobProgress: member.jobProgress,
+                    equipment: member.equipment,
+                  ),
+              ],
+              inventory: defeatedState.inventory,
+              gold: defeatedState.gold,
+              quests: defeatedState.quests,
+            ),
+            'enemy.brine_mite',
+          ),
+        )
+        .result!;
     expect(defeated.outcome, shared.BattleOutcome.defeat);
     expect(defeated.gold, 0);
     expect(defeated.party.map((member) => member.experience), everyElement(0));

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../ui/content/lantern_story.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
@@ -93,7 +96,7 @@ class _BattleScreenState extends State<BattleScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'LANTERN TRAIL',
+                              LanternStory.heading,
                               style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     color: Theme.of(context)
@@ -221,11 +224,7 @@ class _BattleScreenState extends State<BattleScreen> {
         const SizedBox(height: 20),
         Row(
           children: [
-            const SizedBox(
-              width: 72,
-              height: 42,
-              child: BattlePartyArtwork(),
-            ),
+            const SizedBox(width: 72, height: 42, child: BattlePartyArtwork()),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

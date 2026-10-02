@@ -14,6 +14,16 @@ This document records confirmed decisions separately from the proposed demo scop
 - A: Jordan; B: Luke; C: Joseph; D: Trey (current Trello assignments).
 - Flutter 3.47.1 / Dart 3.13.1 is the existing CI toolchain.
 
+## Current story and release stage
+
+Luke confirmed the alpha story on October 2, 2026: Lantern Master Alden Vale
+was killed generations ago, his corrupted lantern affected many islands, and
+Bellwether's tide has only recently failed. The party recovers the lantern from
+the Hollow Bell, a corrupted guardian in the Tide Cistern, and returns it to the
+harbor shrine. The killer remains unknown; other islands still need the light.
+See [the current story reference](lantern-wake-story.md) for the full sequence.
+The submitted demo is complete; current player-facing builds are called alpha.
+
 ## Proposed scope already listed on T0
 
 Four heroes, four starter jobs, a 15–20 minute demo with a town, connecting
