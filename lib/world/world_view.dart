@@ -231,7 +231,11 @@ class _WorldViewState extends State<WorldView>
                         ),
                       ),
                     ),
-                    if (error != null || !widget.host.movementEnabled)
+                    // Input can be unavailable while a Lantern Link guest is
+                    // rendering the host's state. Keep that read-only state
+                    // unobtrusive; only an invalid map position warrants an
+                    // error overlay.
+                    if (error != null)
                       ColoredBox(
                         color: const Color(0x990c171c),
                         child: Center(
