@@ -56,7 +56,6 @@ class _WorldViewState extends State<WorldView>
   ui.Image? _mapArt;
   ui.Image? _openArt;
   String? _loadedMap;
-  String? _departureHint;
   int _artGeneration = 0;
 
   static final _keys = <LogicalKeyboardKey, WalkDirection>{
@@ -96,7 +95,6 @@ class _WorldViewState extends State<WorldView>
       speed: widget.artwork == null ? WorldController.tilesPerSecond : 14,
       encounters: widget.encounters,
       interactions: widget.interactions,
-      onMapExit: _onMapExit,
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
@@ -162,21 +160,10 @@ class _WorldViewState extends State<WorldView>
 
   void _hostChanged() {
     _controller.synchronize();
-    if (widget.host.state.quests.flags.contains('quest.lantern.accepted')) {
-      _departureHint = null;
-    }
     if (!widget.host.movementEnabled || _controller.positionError != null) {
       _lastFrame = null;
     }
     if (mounted) setState(() {});
-  }
-
-  void _onMapExit(WorldTarget exit) {
-    if (exit.id == 'exit.harbor_to_causeway' &&
-        !widget.host.state.quests.flags.contains('quest.lantern.accepted')) {
-      _departureHint =
-          'Before you go: Keeper Mara needs to speak with you at the harbor lantern.';
-    }
   }
 
   String get _questObjective {
@@ -194,6 +181,14 @@ class _WorldViewState extends State<WorldView>
       return 'Return to Keeper Mara in Bellwether Harbor.';
     }
     return 'The tide returns to Bellwether.';
+  }
+
+  String? get _earlyDepartureHint {
+    final flags = widget.host.state.quests.flags;
+    return widget.map.id == ArtworkWorld.route &&
+            !flags.contains('quest.lantern.accepted')
+        ? 'Before you go: Keeper Mara needs to speak with you at the harbor lantern.'
+        : null;
   }
 
   void _tick(Duration now) {
@@ -247,7 +242,6 @@ class _WorldViewState extends State<WorldView>
   }
 
   void _press(Object source, WalkDirection direction) {
-    _departureHint = null;
     _controller.press(source, direction);
     setState(() {}); // Facing changes even when a solid target blocks movement.
   }
@@ -325,7 +319,7 @@ class _WorldViewState extends State<WorldView>
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if ((_controller.interactionMessage ?? _departureHint)
+                  if ((_controller.interactionMessage ?? _earlyDepartureHint)
                       case final message?) ...[
                     const SizedBox(height: 6),
                     Text(
@@ -391,7 +385,10 @@ class _WorldViewState extends State<WorldView>
                           final camera = worldCameraOffset(
                             viewport: constraints.biggest,
                             mapSize: mapSize,
-                            player: Offset(position.x * unit, position.y * unit),
+                            player: Offset(
+                              position.x * unit,
+                              position.y * unit,
+                            ),
                           );
                           final townsfolk = widget.map.id == ArtworkWorld.town
                               ? (widget.interactions?.targets ??
@@ -413,35 +410,22 @@ class _WorldViewState extends State<WorldView>
                                       ))
                                     Positioned(
                                       left:
-                                          camera.dx +
-                                          (npc.x + .5) * unit -
-                                          15,
-                                      top:
-                                          camera.dy +
-                                          (npc.y + .5) * unit -
-                                          74,
-                                      child: const IgnorePointer(
+                                          camera.dx + (npc.x + .5) * unit - 15,
+                                      top: camera.dy + (npc.y + .5) * unit - 74,
+                                      child: IgnorePointer(
                                         child: Semantics(
-                                          label:
-                                              'Quest available from Keeper Mara',
+                                          label: 'Quest available from Keeper Mara',
                                           child: _QuestMarker(),
                                         ),
                                       ),
                                     ),
                                 for (final npc in townsfolk)
                                   Positioned(
-                                    left:
-                                        camera.dx +
-                                        (npc.x + .5) * unit -
-                                        18,
-                                    top:
-                                        camera.dy +
-                                        (npc.y + .5) * unit -
-                                        46,
+                                    left: camera.dx + (npc.x + .5) * unit - 18,
+                                    top: camera.dy + (npc.y + .5) * unit - 46,
                                     child: IgnorePointer(
                                       child: BellwetherTownspersonSprite(
-                                        variant:
-                                            npc.id == 'npc.orrin' ? 1 : 0,
+                                        variant: npc.id == 'npc.orrin' ? 1 : 0,
                                       ),
                                     ),
                                   ),
@@ -450,12 +434,13 @@ class _WorldViewState extends State<WorldView>
                                   top: camera.dy + position.y * unit - 48,
                                   child: IgnorePointer(
                                     child: ExplorationHeroSprite(
-                                      directionRow: switch (_controller.facing) {
-                                        WalkDirection.down => 0,
-                                        WalkDirection.up => 1,
-                                        WalkDirection.left => 2,
-                                        WalkDirection.right => 3,
-                                      },
+                                      directionRow:
+                                          switch (_controller.facing) {
+                                            WalkDirection.down => 0,
+                                            WalkDirection.up => 1,
+                                            WalkDirection.left => 2,
+                                            WalkDirection.right => 3,
+                                          },
                                     ),
                                   ),
                                 ),
