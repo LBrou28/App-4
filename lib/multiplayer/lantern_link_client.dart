@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../core/contracts.dart';
+import 'lantern_link.dart';
 
 /// Browser/desktop client for the T3 WebSocket protocol. It renders server
 /// snapshots and never resolves lobby or combat state locally.
@@ -147,7 +148,8 @@ final class LanternLinkClient extends ChangeNotifier {
         final queuedDialogue = _queuedDialogue;
         _queuedExploration = null;
         _queuedDialogue = null;
-        if (queued != null) publishExploration(queued, dialogue: queuedDialogue);
+        if (queued != null)
+          publishExploration(queued, dialogue: queuedDialogue);
       }
     } catch (_) {
       _error = 'Received an unreadable server message.';
