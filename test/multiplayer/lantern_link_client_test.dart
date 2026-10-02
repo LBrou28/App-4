@@ -49,6 +49,11 @@ void main() {
     await joined.future.timeout(const Duration(seconds: 3));
     expect(client.snapshot!.room, 'client-test');
     expect(client.isHost, isTrue);
+    expect(client.snapshot!.gameState.position, isNotNull);
+    expect(
+      client.snapshot!.gameState.party.map((member) => member.id),
+      orderedEquals(createContractFixture().party.map((member) => member.id)),
+    );
     client.dispose();
     await server.close();
   });

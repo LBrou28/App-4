@@ -209,6 +209,10 @@ final class LanternLinkClientSnapshot {
   final Map<String, dynamic> state;
   final Map<String, dynamic>? battle;
 
+  /// Converts the server's authoritative exploration payload back into the
+  /// shared immutable state model. UI code must never invent guest state.
+  GameState get gameState => decodeLanternLinkState(state);
+
   List<String> get heroIds => [
     for (final value in state['party'] as List)
       Map<String, dynamic>.from(value as Map)['id'] as String,
@@ -219,6 +223,41 @@ final class LanternLinkClientSnapshot {
       .expand((entry) => entry.value)
       .toList();
 }
+
+GameState decodeLanternLinkState(Map<String, dynamic> json) {
+  final position = Map<String, dynamic>.from(json['position'] as Map);
+  final quests = Map<String, dynamic>.from(json['quests'] as Map);
+  return GameState(
+    position: WorldPosition(
+      mapId: position['mapId'] as String,
+      x: (position['x'] as num).toDouble(),
+      y: (position['y'] as num).toDouble(),
+    ),
+    party: [
+      for (final value in json['party'] as List)
+        _memberFromJson(Map<String, dynamic>.from(value as Map)),
+    ],
+    inventory: Inventory(Map<String, int>.from(json['inventory'] as Map)),
+    gold: json['gold'] as int,
+    quests: QuestFlags(
+      flags: Set<String>.from(quests['flags'] as List),
+      openedChestIds: Set<String>.from(quests['openedChestIds'] as List),
+    ),
+  );
+}
+
+PartyMember _memberFromJson(Map<String, dynamic> json) => PartyMember(
+  id: json['id'] as String,
+  jobId: json['jobId'] as String,
+  hp: json['hp'] as int,
+  maxHp: json['maxHp'] as int,
+  mp: json['mp'] as int,
+  maxMp: json['maxMp'] as int,
+  level: json['level'] as int,
+  experience: json['experience'] as int,
+  jobProgress: Map<String, int>.from(json['jobProgress'] as Map),
+  equipment: Map<String, String>.from(json['equipment'] as Map),
+);
 
 Map<String, Object?> _stateJson(GameState state) => {
   'position': {
