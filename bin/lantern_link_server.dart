@@ -2,14 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_4/app/integration_preview.dart'
-    show createLanternInitialState;
 import 'package:app_4/battle/battle.dart';
 import 'package:app_4/battle/lantern_balance.dart';
 import 'package:app_4/core/contracts.dart';
 import 'package:app_4/multiplayer/lantern_link.dart';
+import 'package:app_4/multiplayer/lantern_link_bootstrap.dart';
 import 'package:app_4/ui/content/demo_content.dart';
-import 'package:app_4/world/interaction_world.dart';
 
 /// Start with: dart run bin/lantern_link_server.dart --room bellwether
 ///
@@ -22,10 +20,9 @@ Future<void> main(List<String> args) async {
   final content = DemoContent.decode(
     await File('assets/data/lantern_wake.json').readAsString(),
   );
-  final world = InteractionWorld(content);
-  final state = createLanternInitialState(
+  final state = createLanternLinkInitialState(
     content,
-    world.maps['map.bellwether']!.spawns['entry']!,
+    WorldPosition(mapId: 'map.bellwether', x: 19.5, y: 8.5),
     progression: LanternBalance().progression,
   );
   final server = LanternLinkServer(
