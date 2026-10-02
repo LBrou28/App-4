@@ -6,6 +6,7 @@ import '../battle/ui/battle_screen.dart';
 import '../multiplayer/lantern_link.dart';
 import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
+import '../ui/content/lantern_story.dart';
 import '../ui/game_theme.dart';
 import '../ui/lantern_link_dialog.dart';
 import 'app_controller.dart';
@@ -23,7 +24,7 @@ class GameApp extends StatefulWidget {
     this.battleTitle = 'Battle',
     this.title = 'App-4 • Practice world',
     this.introduction = 'Explore the practice grounds with arrow keys, WASD or the on-screen controls.\n\nThis early build supports exploration. Battles and saving are coming later.',
-    this.pauseMessage = 'Beyond Bellwether Harbor, an ancient bell has begun to stir beneath the tide. Its echo calls lost souls from the deep, and the harbor lanterns are fading one by one.\n\nFollow the lantern light, mend the broken way through the Cistern, and bring the sea’s restless song to an end.',
+    this.pauseMessage = LanternStory.pauseLore,
   });
   final Map<String, BattleFactory> battles;
   final SaveRepository? saves;
@@ -382,41 +383,41 @@ class _GameAppState extends State<GameApp> {
     List<Widget> actions, {
     Widget? artwork,
   }) => Center(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (artwork != null) ...[
-                SizedBox(height: 180, child: artwork),
-                const SizedBox(height: 12),
-              ],
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (artwork != null) ...[
+              SizedBox(height: 180, child: artwork),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            // Long lore scrolls independently so resume/save stay reachable.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, height: 1.5),
-              ),
-              const SizedBox(height: 24),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: actions,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: actions,
+            ),
+          ],
         ),
       ),
     ),
@@ -451,7 +452,7 @@ class _GameAppState extends State<GameApp> {
         ),
         SafeArea(
           child: Center(
-            child: SingleChildScrollView(
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
@@ -465,7 +466,7 @@ class _GameAppState extends State<GameApp> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'LANTERN WAKE',
+                      LanternStory.heading,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xffffe2a6),
@@ -483,7 +484,7 @@ class _GameAppState extends State<GameApp> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'A tale from the Saltglass Coast',
+                      'Alpha • A tale from the Saltglass Coast',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xffa8d7d4),
@@ -495,13 +496,17 @@ class _GameAppState extends State<GameApp> {
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Divider(color: Color(0xffd8b66e)),
                     ),
-                    Text(
-                      widget.introduction,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xffe6eee9),
-                        fontSize: 17,
-                        height: 1.55,
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          widget.introduction,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xffe6eee9),
+                            fontSize: 17,
+                            height: 1.55,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -773,7 +778,9 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Icon(
-            value['side'] == 'enemies' ? Icons.pest_control : Icons.shield_outlined,
+            value['side'] == 'enemies'
+                ? Icons.pest_control
+                : Icons.shield_outlined,
             size: 34,
           ),
           const SizedBox(height: 8),
@@ -785,8 +792,14 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
             borderRadius: BorderRadius.circular(3),
           ),
           const SizedBox(height: 8),
-          Text('HP ${value['hp']} / ${value['maxHp']}', textAlign: TextAlign.center),
-          Text('MP ${value['mp']} / ${value['maxMp']}', textAlign: TextAlign.center),
+          Text(
+            'HP ${value['hp']} / ${value['maxHp']}',
+            textAlign: TextAlign.center,
+          ),
+          Text(
+            'MP ${value['mp']} / ${value['maxMp']}',
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -804,24 +817,39 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Enemy formation', style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          'Enemy formation',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 20),
                         Wrap(
                           alignment: WrapAlignment.center,
                           spacing: 16,
                           runSpacing: 16,
-                          children: [for (final enemy in enemies) SizedBox(width: 180, child: card(context, enemy))],
+                          children: [
+                            for (final enemy in enemies)
+                              SizedBox(width: 180, child: card(context, enemy)),
+                          ],
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text('YOUR PARTY', style: Theme.of(context).textTheme.labelLarge),
+                  Text(
+                    'YOUR PARTY',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
-                    children: [for (final hero in heroes) SizedBox(width: wide ? 160 : 145, child: card(context, hero))],
+                    children: [
+                      for (final hero in heroes)
+                        SizedBox(
+                          width: wide ? 160 : 145,
+                          child: card(context, hero),
+                        ),
+                    ],
                   ),
                 ],
               );
@@ -829,29 +857,51 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Shared battle', style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      'Shared battle',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 8),
-                    Text('Round ${battle['round']} • Choose actions for your assigned heroes.'),
+                    Text(
+                      'Round ${battle['round']} • Choose actions for your assigned heroes.',
+                    ),
                     const SizedBox(height: 16),
-                    for (final hero in heroes.where((value) => owned.contains(value['id']) && (value['hp'] as int) > 0))
+                    for (final hero in heroes.where(
+                      (value) =>
+                          owned.contains(value['id']) &&
+                          (value['hp'] as int) > 0,
+                    ))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Row(
                           children: [
                             Expanded(child: Text(name(hero))),
-                            OutlinedButton(onPressed: () => client.defend(hero['id'] as String), child: const Text('Defend')),
+                            OutlinedButton(
+                              onPressed: () =>
+                                  client.defend(hero['id'] as String),
+                              child: const Text('Defend'),
+                            ),
                             const SizedBox(width: 8),
                             FilledButton(
-                              onPressed: enemies.isEmpty ? null : () => client.attack(hero['id'] as String, enemies.first['id'] as String),
+                              onPressed: enemies.isEmpty
+                                  ? null
+                                  : () => client.attack(
+                                      hero['id'] as String,
+                                      enemies.first['id'] as String,
+                                    ),
                               child: const Text('Attack'),
                             ),
                           ],
                         ),
                       ),
                     if (!heroes.any((value) => owned.contains(value['id'])))
-                      const Text('Waiting for the players assigned to this round.'),
+                      const Text(
+                        'Waiting for the players assigned to this round.',
+                      ),
                     const SizedBox(height: 8),
-                    const Text('The Lantern Link server resolves the round after every assigned hero has chosen.'),
+                    const Text(
+                      'The Lantern Link server resolves the round after every assigned hero has chosen.',
+                    ),
                   ],
                 ),
               );
@@ -860,10 +910,30 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('LANTERN TRAIL', style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 3)),
-                    Text('Battle', style: Theme.of(context).textTheme.headlineMedium),
+                    Text(
+                      LanternStory.heading,
+                      style: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(letterSpacing: 3),
+                    ),
+                    Text(
+                      'Battle',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     const SizedBox(height: 20),
-                    if (wide) Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: arena), const SizedBox(width: 20), SizedBox(width: 340, child: controls)]) else ...[arena, const SizedBox(height: 16), controls],
+                    if (wide)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: arena),
+                          const SizedBox(width: 20),
+                          SizedBox(width: 340, child: controls),
+                        ],
+                      )
+                    else ...[
+                      arena,
+                      const SizedBox(height: 16),
+                      controls,
+                    ],
                   ],
                 ),
               );

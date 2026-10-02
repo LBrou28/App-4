@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contentVersion": "lantern-wake.maps.2",
   "title": "The Lantern Wake",
-  "premise": "The tide has stopped beneath Bellwether's harbor. Four apprentice keepers must carry a living lantern to the buried tide bell before the stranded fishing fleet runs out of water.",
+  "premise": "Generations ago, Lantern Master Alden Vale was killed and the lantern he carried between the islands was corrupted. Each year he returned its light to Bellwether's shrine to renew the tide. Now the spreading darkness has reached the harbor. Ada, Ren, Iona and Tavi must recover the lantern from the ruined Tide Cistern, bring it home and begin restoring the other islands.",
   "heroes": [
     {"id":"hero.ada","name":"Ada","description":"A harbor guard who would rather mend a shield than raise it.","jobId":"job.warrior"},
     {"id":"hero.ren","name":"Ren","description":"A rope runner who knows every roof above the docks.","jobId":"job.monk"},
@@ -21,7 +21,7 @@
     {"id":"item.ether","name":"Dew Phial","description":"Condensed lantern dew. MP recovery belongs to C's rules.","kind":"consumable","slotId":null},
     {"id":"item.harbor_blade","name":"Harbor Blade","description":"A short rescue blade, kept sharp for tangled lines.","kind":"weapon","slotId":"weapon"},
     {"id":"item.rope_wraps","name":"Rope Wraps","description":"Padded wraps made from a retired mooring line.","kind":"weapon","slotId":"weapon"},
-    {"id":"item.shell_staff","name":"Shell Staff","description":"A driftwood staff that hums near the tide bell.","kind":"weapon","slotId":"weapon"},
+    {"id":"item.shell_staff","name":"Shell Staff","description":"A driftwood staff attuned to the tide lantern.","kind":"weapon","slotId":"weapon"},
     {"id":"item.keeper_coat","name":"Keeper Coat","description":"A reinforced coat for long watches in salt spray.","kind":"armor","slotId":"body"},
     {"id":"item.linen_robe","name":"Linen Robe","description":"Light woven cloth stitched with lantern patterns.","kind":"armor","slotId":"body"}
   ],
@@ -31,29 +31,30 @@
     {"id":"spell.rill","name":"Rill","description":"A ribbon of water against one enemy.","target":"enemy","element":"water"}
   ],
   "enemies": [
-    {"id":"enemy.brine_mite","name":"Brine Mite","description":"A brittle scavenger; introduces basic physical attacks.","kind":"regular","spellIds":[],"tactic":"Low-pressure opening encounter. C chooses stats and rewards."},
-    {"id":"enemy.wick_moth","name":"Wick Moth","description":"A glowing moth drawn to the crew's lantern.","kind":"regular","spellIds":["spell.ember"],"tactic":"Encourages trying water magic and recovery between battles."},
-    {"id":"enemy.silt_guard","name":"Silt Guard","description":"An old maintenance shell hardened by years of silt.","kind":"regular","spellIds":[],"tactic":"Contrasts durable physical defense with magic; C decides exact resistances."},
-    {"id":"enemy.hollow_bell","name":"The Hollow Bell","description":"A bell-keeper construct mistaking silence for safety.","kind":"boss","spellIds":["spell.rill"],"tactic":"Alternate pressure and recovery windows. Reward mixed jobs without requiring a single party composition."}
+    {"id":"enemy.brine_mite","name":"Brine Mite","description":"A scavenger nesting in the stranded shallows.","kind":"regular","spellIds":[],"tactic":"Low-pressure opening encounter. C chooses stats and rewards."},
+    {"id":"enemy.wick_moth","name":"Wick Moth","description":"A moth drawn to fragments of corrupted lantern light.","kind":"regular","spellIds":["spell.ember"],"tactic":"Encourages trying water magic and recovery between battles."},
+    {"id":"enemy.silt_guard","name":"Silt Guard","description":"A forgotten cistern guardian twisted by the lantern corruption.","kind":"regular","spellIds":[],"tactic":"Contrasts durable physical defense with magic; C decides exact resistances."},
+    {"id":"enemy.hollow_bell","name":"The Hollow Bell","description":"The tide lantern's guardian, corrupted into a jailer within the beacon chamber. Alden Vale's killer remains unknown.","kind":"boss","spellIds":["spell.rill"],"tactic":"Alternate pressure and recovery windows. Reward mixed jobs without requiring a single party composition."}
   ],
   "maps": [
-    {"id":"map.bellwether","name":"Bellwether Harbor","description":"A compact dock square: keeper at the central lantern, rest house to the west, east gate to the causeway. Safe from encounters.","exitIds":["map.salt_path"],"enemyIds":[],"dialogueIds":["dialogue.call","dialogue.rest","dialogue.ending"]},
-    {"id":"map.salt_path","name":"Saltglass Causeway","description":"A looping coastal path. A short north spur holds the supply chest; a sheltered bench offers job advice. South path returns to town; east enters the cistern.","exitIds":["map.bellwether","map.tide_cistern"],"enemyIds":["enemy.brine_mite","enemy.wick_moth"],"dialogueIds":["dialogue.jobs"]},
-    {"id":"map.tide_cistern","name":"The Tide Cistern","description":"Two chambers around a dry well: entrance landing and bell chamber. Put a rest alcove before a clearly marked boss threshold and keep the return route open.","exitIds":["map.salt_path"],"enemyIds":["enemy.silt_guard","enemy.hollow_bell"],"dialogueIds":["dialogue.threshold","dialogue.valve","dialogue.bell"]}
+    {"id":"map.bellwether","name":"Bellwether Harbor","description":"A stranded fishing harbor with an empty lantern shrine. Keeper Mara waits beside it; Orrin tends the western rest house. The northern path leads to Saltglass Causeway. Safe from encounters.","exitIds":["map.salt_path"],"enemyIds":[],"dialogueIds":["dialogue.call","dialogue.rest","dialogue.ending","dialogue.mara_memory"]},
+    {"id":"map.salt_path","name":"Saltglass Causeway","description":"A weathered coastal route showing the spreading corruption. Supplies lie at the western camp below the ruined arch; Sable offers advice nearby. The south path returns to Bellwether and the northeast path reaches the Tide Cistern.","exitIds":["map.bellwether","map.tide_cistern"],"enemyIds":["enemy.brine_mite","enemy.wick_moth"],"dialogueIds":["dialogue.jobs"]},
+    {"id":"map.tide_cistern","name":"The Tide Cistern","description":"A once peaceful beacon complex ruined by corrupted lantern light. Reach the northwest valve to drain the central crossing. Beyond it, the Hollow Bell guards Alden's lantern at the back of the beacon chamber. The southwest path returns to the causeway.","exitIds":["map.salt_path"],"enemyIds":["enemy.silt_guard","enemy.hollow_bell"],"dialogueIds":["dialogue.threshold","dialogue.valve","dialogue.bell"]}
   ],
   "npcs": [
-    {"id":"npc.mara","name":"Keeper Mara","description":"The last keeper who remembers the tide bell ringing.","mapId":"map.bellwether","dialogueId":"dialogue.call"},
+    {"id":"npc.mara","name":"Keeper Mara","description":"Bellwether's keeper, preserving the accounts of Alden Vale's lost journeys.","mapId":"map.bellwether","dialogueId":"dialogue.mara_memory"},
     {"id":"npc.orrin","name":"Orrin","description":"A patient ferryman keeping the rest house open.","mapId":"map.bellwether","dialogueId":"dialogue.rest"},
-    {"id":"npc.sable","name":"Sable","description":"A retired keeper who teaches that a job is a tool, not a destiny.","mapId":"map.salt_path","dialogueId":"dialogue.jobs"}
+    {"id":"npc.sable","name":"Sable","description":"A retired keeper who tends the causeway camp and remembers the islands' warnings.","mapId":"map.salt_path","dialogueId":"dialogue.jobs"}
   ],
   "dialogues": [
-    {"id":"dialogue.valve","speakerId":"hero.ren","lines":["The old wheel still turns. Opening the sluice will drain the center channel and reveal the steps to the beacon chamber.","The passage is clear. We can reach the chamber now."]},
-    {"id":"dialogue.call","speakerId":"npc.mara","lines":["The sea has forgotten how to return. Our boats are resting on stone.","Carry this lantern through the Saltglass Causeway to the Tide Cistern. Let its light reach the old bell.","Bring every kind of courage. A strong arm and a healing hand both keep a crew afloat."]},
-    {"id":"dialogue.rest","speakerId":"npc.orrin","lines":["The kettle is warm and the bunks are free. Rest before you leave.","You can always return here. There is no prize for facing the sea exhausted."]},
-    {"id":"dialogue.jobs","speakerId":"npc.sable","lines":["A keeper learns more than one craft. Open Jobs and consider a different role before the cistern.","Wick moths dislike water, while the old guards shrug off rough handling. A spellcaster can help.","Take the salve from the north supply chest. Use it when the road wears you down."]},
-    {"id":"dialogue.threshold","speakerId":"hero.ada","lines":["There is something moving behind the bell. We should check our equipment and rest in the alcove.","When everyone is ready, we go together."]},
-    {"id":"dialogue.bell","speakerId":"hero.iona","lines":["It was not trying to hurt the harbor. It was afraid the next tide would take us away.","Listen. Four voices, one note. We can teach it to begin again."]},
-    {"id":"dialogue.ending","speakerId":"npc.mara","lines":["The water is rising! Look at the lanterns on the boats.","You did not bring back yesterday's sea. You made room for tomorrow's.","Tonight, Bellwether keeps the light for you. Thank you, keepers."]}
+    {"id":"dialogue.mara_memory","speakerId":"npc.mara","lines":["Every island has its own shrine, but Alden's lantern linked their lights. One harbor's hope belongs to all of them.","Whatever lies ahead, remember this: keepers bring the light home, and then carry it onward."]},
+    {"id":"dialogue.valve","speakerId":"hero.ren","lines":["This wheel controls the center channel. Turning it will drain the water and reveal the crossing to the beacon chamber.","The channel is draining. We have a way through to the lantern."]},
+    {"id":"dialogue.call","speakerId":"npc.mara","lines":["The tide has stopped. Our boats are stranded, and the shrine stands empty.","Generations ago, Lantern Master Alden Vale carried one lantern between the islands. Each year he brought it home to this shrine to renew our tide.","Alden was killed. No one knows by whom. His lantern never returned, and its corrupted light has spread from island to island. Now it has reached Bellwether.","The old records place the lantern in the ruined Tide Cistern, beyond Saltglass Causeway. Its guardian, the Hollow Bell, has been corrupted too.","Find the lantern and bring it back to me at the harbor shrine. If we can wake its true light, Bellwether's tide may return."]},
+    {"id":"dialogue.rest","speakerId":"npc.orrin","lines":["Alden's route once brought travelers from every island. Now even the ferries are stranded.","Check your supplies before you set out. You can always return here; no crew should face the sea exhausted."]},
+    {"id":"dialogue.jobs","speakerId":"npc.sable","lines":["The corruption crossed the islands long before our tide failed. Those withered roots are its warning.","A keeper learns more than one craft. Open Jobs to prepare your crew for the cistern's guardians.","Try water magic against wick moths. The silt guards are tougher to handle with fists alone.","There are salves in the supply chest beside this camp. Take them before heading northeast to the cistern."]},
+    {"id":"dialogue.threshold","speakerId":"hero.ada","lines":["The old beacon should have guided people safely home. Something has twisted it into a prison.","The northwest sluice controls the central crossing. Beyond it waits the corrupted guardian.","Check our equipment and supplies before we face the guardian. We go together."]},
+    {"id":"dialogue.bell","speakerId":"hero.iona","lines":["The Hollow Bell is still. Its duty was to protect the lantern, but the corruption turned it against everyone who came near.","Here is Alden's lantern. There is a small, warm light beneath the dark glass. We can carry it home.","The guardian cannot tell us who killed him. That mystery is still out there.","Bring the lantern to Mara at Bellwether's shrine. Its true light may answer there."]},
+    {"id":"dialogue.ending","speakerId":"npc.mara","lines":["Set Alden's lantern in the shrine. After all these generations, its light has come home.","Look! The flame is warming, and the water is moving again. Bellwether's tide is returning.","But the other islands are still caught in the corruption. When you are ready, carry this light to their shrines as Alden once did.","We still do not know who killed him. For now, you have given Bellwether a tomorrow. This is where your journey begins."]}
   ],
   "flags": ["quest.cistern.sluice_open","quest.lantern.accepted","quest.lantern.bell_awake","quest.lantern.complete"],
   "chests": [

@@ -35,8 +35,11 @@ void main() {
       await tester.pumpWidget(
         GameApp(loadWorld: () async => session(), buildWorld: worldViewBuilder),
       );
-      expect(find.text('LANTERN WAKE'), findsOneWidget);
-      expect(find.text('A tale from the Saltglass Coast'), findsOneWidget);
+      expect(find.text('THE LANTERN WAKE'), findsOneWidget);
+      expect(
+        find.text('Alpha • A tale from the Saltglass Coast'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('New Game'));
       await tester.pump();
       await tester.pump();
@@ -52,7 +55,7 @@ void main() {
       await tester.pump();
       expect(find.text('Paused'), findsOneWidget);
       expect(
-        find.textContaining('an ancient bell has begun to stir'),
+        find.textContaining('He was killed generations ago.'),
         findsOneWidget,
       );
       final stopped = host.state.position.x;

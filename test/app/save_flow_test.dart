@@ -390,6 +390,35 @@ void main() {
     });
     expect(c.state.quests.openedChestIds, {'chest.causeway_supplies'});
 
+    // Returning to Mara must use her evergreen lines instead of restarting
+    // the recovery quest or replaying the ending, including after a reload.
+    void checkMaraRemembersCompletion() {
+      final unchanged = SaveCodec.encode(
+        SaveData(contentVersion: content.version, state: c.state),
+      );
+      moveTo(finish.site);
+      expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
+      expect(c.activeDialogue!.dialogue.lines, [
+        "Every island has its own shrine, but Alden's lantern linked their lights. One harbor's hope belongs to all of them.",
+        'Whatever lies ahead, remember this: keepers bring the light home, and then carry it onward.',
+      ]);
+      expect(
+        c.completeDialogue(
+          c.activeDialogue!.token,
+          expectedRevision: c.revision,
+        ),
+        isTrue,
+      );
+      expect(
+        SaveCodec.encode(
+          SaveData(contentVersion: content.version, state: c.state),
+        ),
+        unchanged,
+      );
+    }
+
+    checkMaraRemembersCompletion();
+
     final before = SaveCodec.encode(
       SaveData(contentVersion: content.version, state: c.state),
     );
@@ -401,6 +430,7 @@ void main() {
       SaveData(contentVersion: content.version, state: c.state),
     );
     expect(after, before);
+    checkMaraRemembersCompletion();
   });
 
   test(

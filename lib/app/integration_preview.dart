@@ -8,6 +8,7 @@ import '../battle/lantern_balance.dart';
 import '../core/contracts.dart';
 import '../progression.dart';
 import '../ui/content/demo_content.dart';
+import '../ui/content/lantern_story.dart';
 import '../world/interaction_world.dart';
 import '../world/world_view.dart';
 import '../save/local_save_repository.dart';
@@ -93,9 +94,9 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
   late InteractionWorld world;
   final balance = LanternBalance();
   return GameApp(
-    title: 'Lantern Wake',
-    introduction:
-        'The lanterns of Bellwether Harbor are dimming, and a bell beneath the sea has begun to call. Answer Keeper Mara’s plea and follow the fading light into the Tide Cistern.',
+    title: LanternStory.title,
+    introduction: LanternStory.introduction,
+    pauseMessage: LanternStory.pauseLore,
     saves: saves ?? LocalSaveRepository(),
     battles: {
       'fixture.battle': createTrainingBattle,

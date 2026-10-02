@@ -118,7 +118,7 @@ class _TitleScreenState extends State<TitleScreen> {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Four keepers. One fading light.\nA sea waiting to wake.',
+                'Four keepers. One lost lantern.\nA sea waiting to wake.',
                 style: TextStyle(
                   fontSize: 21,
                   height: 1.6,

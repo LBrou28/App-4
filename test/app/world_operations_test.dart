@@ -415,7 +415,7 @@ void main() {
     );
     expect(
       ops.dialogues['npc.mara']!.lines,
-      content.find('dialogues', 'dialogue.call').strings('lines'),
+      content.find('dialogues', 'dialogue.mara_memory').strings('lines'),
     );
     expect(ops.chests['chest.causeway_supplies']!.itemId, 'item.salves');
     expect(ops.chests['chest.causeway_supplies']!.quantity, 2);

@@ -169,25 +169,25 @@ class _WorldViewState extends State<WorldView>
   String get _questObjective {
     final flags = widget.host.state.quests.flags;
     if (!flags.contains('quest.lantern.accepted')) {
-      return 'Talk to Keeper Mara at the harbor lantern.';
+      return 'Talk to Keeper Mara beside the empty harbor shrine.';
     }
     if (!flags.contains(ArtworkWorld.sluiceFlag)) {
-      return 'Reach the Tide Cistern and turn the northwest valve.';
+      return 'Find the lost lantern: reach the Tide Cistern and turn the northwest valve.';
     }
     if (!flags.contains('quest.lantern.bell_awake')) {
-      return 'Enter the beacon chamber and face the Hollow Bell.';
+      return 'Defeat the Hollow Bell in the beacon chamber and recover Alden\'s lantern.';
     }
     if (!flags.contains('quest.lantern.complete')) {
-      return 'Return to Keeper Mara in Bellwether Harbor.';
+      return 'Bring the recovered lantern to Mara at the harbor shrine.';
     }
-    return 'The tide returns to Bellwether.';
+    return 'Bellwether\'s tide is returning. Other islands still need the light.';
   }
 
   String? get _earlyDepartureHint {
     final flags = widget.host.state.quests.flags;
     return widget.map.id == ArtworkWorld.route &&
             !flags.contains('quest.lantern.accepted')
-        ? 'Before you go: Keeper Mara needs to speak with you at the harbor lantern.'
+        ? 'Before you go: Keeper Mara is waiting beside the empty harbor shrine.'
         : null;
   }
 
@@ -458,7 +458,7 @@ class _WorldViewState extends State<WorldView>
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              error ?? 'Movement paused',
+                              error,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: Colors.white,

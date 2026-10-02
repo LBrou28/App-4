@@ -136,7 +136,7 @@ class EncounterArtwork extends StatelessWidget {
       filterQuality: FilterQuality.none,
       semanticLabel: isBoss
           ? 'The Hollow Bell, lantern warden boss'
-          : 'Creatures of the Lantern Trail',
+          : 'Creatures of The Lantern Wake',
     ),
   );
 }

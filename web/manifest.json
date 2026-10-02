@@ -1,11 +1,11 @@
 {
-    "name": "app_4",
-    "short_name": "app_4",
+    "name": "The Lantern Wake",
+    "short_name": "Lantern Wake",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "The Lantern Wake alpha: recover a lost tide lantern and restore Bellwether.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
