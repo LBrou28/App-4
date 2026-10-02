@@ -128,8 +128,12 @@ void main() {
       }
 
       await loaded(ArtworkWorld.town);
+      expect(find.textContaining('Talk to Keeper Mara'), findsOneWidget);
+      expect(find.byKey(const ValueKey('quest-marker-mara')), findsOneWidget);
       await capture('maps-main-harbor');
       await exit('exit.harbor_to_causeway');
+      expect(find.textContaining('Before you go'), findsOneWidget);
+      expect(find.byKey(const ValueKey('quest-marker-mara')), findsNothing);
       expect(
         host.updatePosition(
           ArtworkWorld.scenes[ArtworkWorld.route]!.position(

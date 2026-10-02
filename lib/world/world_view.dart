@@ -166,6 +166,31 @@ class _WorldViewState extends State<WorldView>
     if (mounted) setState(() {});
   }
 
+  String get _questObjective {
+    final flags = widget.host.state.quests.flags;
+    if (!flags.contains('quest.lantern.accepted')) {
+      return 'Talk to Keeper Mara at the harbor lantern.';
+    }
+    if (!flags.contains(ArtworkWorld.sluiceFlag)) {
+      return 'Reach the Tide Cistern and turn the northwest valve.';
+    }
+    if (!flags.contains('quest.lantern.bell_awake')) {
+      return 'Enter the beacon chamber and face the Hollow Bell.';
+    }
+    if (!flags.contains('quest.lantern.complete')) {
+      return 'Return to Keeper Mara in Bellwether Harbor.';
+    }
+    return 'The tide returns to Bellwether.';
+  }
+
+  String? get _earlyDepartureHint {
+    final flags = widget.host.state.quests.flags;
+    return widget.map.id == ArtworkWorld.route &&
+            !flags.contains('quest.lantern.accepted')
+        ? 'Before you go: Keeper Mara needs to speak with you at the harbor lantern.'
+        : null;
+  }
+
   void _tick(Duration now) {
     final previous = _lastFrame;
     _lastFrame = now;
@@ -277,11 +302,34 @@ class _WorldViewState extends State<WorldView>
               width: double.infinity,
               color: const Color(0xff14272f),
               padding: const EdgeInsets.all(10),
-              child: Text(
-                '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests\n'
-                '${_controller.interactionMessage ?? 'Blue: people · Gold: chest · Teal: walk onto an exit'}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+              child: Column(
+                children: [
+                  Text(
+                    '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'WAKE THE TIDE  ·  $_questObjective',
+                    key: const ValueKey('quest-objective'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xffffd36e),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if ((_controller.interactionMessage ?? _earlyDepartureHint)
+                      case final message?) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      message,
+                      key: const ValueKey('world-guidance-message'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xffcde8ef)),
+                    ),
+                  ],
+                ],
               ),
             ),
           Expanded(
@@ -337,7 +385,10 @@ class _WorldViewState extends State<WorldView>
                           final camera = worldCameraOffset(
                             viewport: constraints.biggest,
                             mapSize: mapSize,
-                            player: Offset(position.x * unit, position.y * unit),
+                            player: Offset(
+                              position.x * unit,
+                              position.y * unit,
+                            ),
                           );
                           final townsfolk = widget.map.id == ArtworkWorld.town
                               ? (widget.interactions?.targets ??
@@ -353,19 +404,28 @@ class _WorldViewState extends State<WorldView>
                             child: Stack(
                               children: [
                                 for (final npc in townsfolk)
+                                  if (npc.id == 'npc.mara' &&
+                                      !widget.host.state.quests.flags.contains(
+                                        'quest.lantern.accepted',
+                                      ))
+                                    Positioned(
+                                      left:
+                                          camera.dx + (npc.x + .5) * unit - 15,
+                                      top: camera.dy + (npc.y + .5) * unit - 74,
+                                      child: IgnorePointer(
+                                        child: Semantics(
+                                          label: 'Quest available from Keeper Mara',
+                                          child: _QuestMarker(),
+                                        ),
+                                      ),
+                                    ),
+                                for (final npc in townsfolk)
                                   Positioned(
-                                    left:
-                                        camera.dx +
-                                        (npc.x + .5) * unit -
-                                        18,
-                                    top:
-                                        camera.dy +
-                                        (npc.y + .5) * unit -
-                                        46,
+                                    left: camera.dx + (npc.x + .5) * unit - 18,
+                                    top: camera.dy + (npc.y + .5) * unit - 46,
                                     child: IgnorePointer(
                                       child: BellwetherTownspersonSprite(
-                                        variant:
-                                            npc.id == 'npc.orrin' ? 1 : 0,
+                                        variant: npc.id == 'npc.orrin' ? 1 : 0,
                                       ),
                                     ),
                                   ),
@@ -374,12 +434,13 @@ class _WorldViewState extends State<WorldView>
                                   top: camera.dy + position.y * unit - 48,
                                   child: IgnorePointer(
                                     child: ExplorationHeroSprite(
-                                      directionRow: switch (_controller.facing) {
-                                        WalkDirection.down => 0,
-                                        WalkDirection.up => 1,
-                                        WalkDirection.left => 2,
-                                        WalkDirection.right => 3,
-                                      },
+                                      directionRow:
+                                          switch (_controller.facing) {
+                                            WalkDirection.down => 0,
+                                            WalkDirection.up => 1,
+                                            WalkDirection.left => 2,
+                                            WalkDirection.right => 3,
+                                          },
                                     ),
                                   ),
                                 ),
@@ -469,6 +530,31 @@ class _WorldViewState extends State<WorldView>
       ),
     );
   }
+}
+
+class _QuestMarker extends StatelessWidget {
+  const _QuestMarker();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('quest-marker-mara'),
+    width: 30,
+    height: 30,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: const Color(0xffffd36e),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xff14272f), width: 3),
+    ),
+    child: const Text(
+      '!',
+      style: TextStyle(
+        color: Color(0xff14272f),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
 }
 
 class WorldPainter extends CustomPainter {
