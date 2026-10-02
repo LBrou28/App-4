@@ -117,11 +117,13 @@ class AppController extends ChangeNotifier
         return SaveUnreadable(SaveReadFailure.unsupportedVersion);
       }
       final restored = loadedSave.data.state;
-      final area = restored.position.mapId == loadedWorld.map.id
-          ? WorldArea(map: loadedWorld.map, isClear: loadedWorld.isClear)
-          : loadedWorld.operations.areas[restored.position.mapId];
+      final area =
+          loadedWorld.operations.areas[restored.position.mapId] ??
+          (restored.position.mapId == loadedWorld.map.id
+              ? WorldArea(map: loadedWorld.map, isClear: loadedWorld.isClear)
+              : null);
       if (area == null ||
-          !_check(() => area.isClear(restored.position)) ||
+          !_check(() => area.permits(restored.position, restored.quests)) ||
           restored.party.length != loadedWorld.initialState.party.length ||
           !restored.party.asMap().entries.every(
             (entry) =>
@@ -172,11 +174,21 @@ class AppController extends ChangeNotifier
       final loaded = await loadWorld();
       if (_disposed || generation != _loadGeneration) return;
       if (loaded.initialState.position.mapId != loaded.map.id ||
-          !_check(() => loaded.isClear(loaded.initialState.position))) {
+          !_check(
+            () =>
+                (loaded.operations.areas[loaded.map.id] ??
+                        WorldArea(map: loaded.map, isClear: loaded.isClear))
+                    .permits(
+                      loaded.initialState.position,
+                      loaded.initialState.quests,
+                    ),
+          )) {
         throw StateError('Invalid world spawn');
       }
       _session = loaded;
-      _area = WorldArea(map: loaded.map, isClear: loaded.isClear);
+      _area =
+          loaded.operations.areas[loaded.map.id] ??
+          WorldArea(map: loaded.map, isClear: loaded.isClear);
       _state = loaded.initialState;
       _mode = AppMode.exploration;
       _publish();
@@ -235,7 +247,7 @@ class AppController extends ChangeNotifier
         !movementEnabled ||
         expectedRevision != revision ||
         position.mapId != _area?.map.id ||
-        !_check(() => _area!.isClear(position))) {
+        !_check(() => _area!.permits(position, state.quests))) {
       return false;
     }
     _state = GameState(
@@ -299,13 +311,15 @@ class AppController extends ChangeNotifier
     if (!_canInteract(expectedRevision)) return false;
     final exit = _session!.operations.exits[exitId];
     if (exit == null || !_reachable(exit.site)) return false;
-    final destination = exit.destinationMapId == _session!.map.id
-        ? WorldArea(map: _session!.map, isClear: _session!.isClear)
-        : _session!.operations.areas[exit.destinationMapId];
+    final destination =
+        _session!.operations.areas[exit.destinationMapId] ??
+        (exit.destinationMapId == _session!.map.id
+            ? WorldArea(map: _session!.map, isClear: _session!.isClear)
+            : null);
     final spawn = destination?.map.spawns[exit.spawnId];
     if (destination == null ||
         spawn == null ||
-        !_check(() => destination.isClear(spawn))) {
+        !_check(() => destination.permits(spawn, state.quests))) {
       return false;
     }
     _state = _copyState(position: spawn);

@@ -6,7 +6,6 @@ import '../battle/ui/battle_screen.dart';
 import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
 import '../ui/lantern_link_dialog.dart';
-import '../ui/sprite_art.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
 
@@ -427,7 +426,6 @@ class _GameAppState extends State<GameApp> {
                             child: const Text('Cancel'),
                           ),
                         ],
-                        artwork: const ExplorationPartyArtwork(),
                       ),
                     ),
                   if (_controller.mode == AppMode.error)

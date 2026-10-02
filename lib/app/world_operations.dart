@@ -3,9 +3,16 @@ import '../core/contracts.dart';
 /// B supplies geometry, full-footprint collision and reach predicates.
 /// Predicates must be synchronous, pure reads of the supplied position.
 final class WorldArea {
-  const WorldArea({required this.map, required this.isClear});
+  const WorldArea({
+    required this.map,
+    required this.isClear,
+    this.isClearWithQuests,
+  });
   final MapDefinition map;
   final bool Function(WorldPosition) isClear;
+  final bool Function(WorldPosition, QuestFlags)? isClearWithQuests;
+  bool permits(WorldPosition position, QuestFlags quests) =>
+      isClearWithQuests?.call(position, quests) ?? isClear(position);
 }
 
 final class InteractionSite {

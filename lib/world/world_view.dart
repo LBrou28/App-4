@@ -7,7 +7,8 @@ import 'package:flutter/services.dart';
 
 import '../app/world_view_builder.dart';
 import '../core/contracts.dart';
-import '../ui/sprite_art.dart';
+import 'artwork_world.dart';
+import 'cistern_geometry.dart';
 import 'world_camera.dart';
 import 'world_controller.dart';
 import 'world_map.dart';
@@ -29,6 +30,7 @@ class WorldView extends StatefulWidget {
     this.interactions,
     this.landmarks = const [],
     this.mapName,
+    this.artwork,
   });
   final MapDefinition map;
   final WorldHost host;
@@ -37,6 +39,7 @@ class WorldView extends StatefulWidget {
   final WorldInteractions? interactions;
   final List<WorldLandmark> landmarks;
   final String? mapName;
+  final ArtworkWorld? artwork;
 
   @override
   State<WorldView> createState() => _WorldViewState();
@@ -49,7 +52,10 @@ class _WorldViewState extends State<WorldView>
   late AppLifecycleListener _lifecycle;
   final _focus = FocusNode(debugLabel: 'B1 world controls');
   Duration? _lastFrame;
-  ui.Image? _harborArt;
+  ui.Image? _mapArt;
+  ui.Image? _openArt;
+  String? _loadedMap;
+  int _artGeneration = 0;
 
   static final _keys = <LogicalKeyboardKey, WalkDirection>{
     LogicalKeyboardKey.arrowUp: WalkDirection.up,
@@ -66,7 +72,7 @@ class _WorldViewState extends State<WorldView>
   void initState() {
     super.initState();
     _attach();
-    _loadHarborArt();
+    _loadMapArt();
     _ticker = createTicker(_tick)..start();
     _lifecycle = AppLifecycleListener(
       onInactive: _resetInput,
@@ -79,7 +85,13 @@ class _WorldViewState extends State<WorldView>
   void _attach() {
     _controller = WorldController(
       host: widget.host,
-      collision: WorldCollision(widget.map),
+      collision:
+          widget.artwork?.collision(
+            widget.map.id,
+            flags: () => widget.host.state.quests.flags,
+          ) ??
+          WorldCollision(widget.map),
+      speed: widget.artwork == null ? WorldController.tilesPerSecond : 14,
       encounters: widget.encounters,
       interactions: widget.interactions,
     );
@@ -87,19 +99,57 @@ class _WorldViewState extends State<WorldView>
     widget.changes.addListener(_hostChanged);
   }
 
-  Future<void> _loadHarborArt() async {
-    if (widget.map.id != 'map.bellwether' || _harborArt != null) return;
-    final data = await rootBundle.load(
-      'assets/maps/bellwether_harbor_paths_v3.png',
-    );
-    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-    final frame = await codec.getNextFrame();
-    codec.dispose();
-    if (!mounted) {
-      frame.image.dispose();
-      return;
+  Future<void> _loadMapArt() async {
+    final generation = ++_artGeneration;
+    final scene = widget.artwork == null
+        ? null
+        : ArtworkWorld.scenes[widget.map.id];
+    _mapArt?.dispose();
+    _openArt?.dispose();
+    _mapArt = null;
+    _openArt = null;
+    _loadedMap = null;
+    if (scene == null) return;
+    Future<ui.Image> image(String asset) async {
+      final data = await rootBundle.load(asset);
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      return frame.image;
     }
-    setState(() => _harborArt = frame.image);
+
+    ui.Image? base, open;
+    try {
+      base = await image(scene.asset);
+      if (scene.id == ArtworkWorld.dungeon) {
+        open = await image('assets/maps/drowned_cistern_open_sluice_v2.png');
+      }
+      if (!mounted || generation != _artGeneration) {
+        base.dispose();
+        open?.dispose();
+        return;
+      }
+      setState(() {
+        _mapArt = base;
+        _openArt = open;
+        _loadedMap = scene.id;
+      });
+    } catch (error, stack) {
+      base?.dispose();
+      open?.dispose();
+      if (mounted && generation == _artGeneration) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'world artwork',
+            context: ErrorDescription('loading ${scene.asset}'),
+          ),
+        );
+      }
+    }
   }
 
   void _resetInput() {
@@ -130,11 +180,12 @@ class _WorldViewState extends State<WorldView>
         oldWidget.changes != widget.changes ||
         oldWidget.map != widget.map ||
         oldWidget.encounters != widget.encounters ||
-        oldWidget.interactions != widget.interactions) {
+        oldWidget.interactions != widget.interactions ||
+        oldWidget.artwork != widget.artwork) {
       oldWidget.changes.removeListener(_hostChanged);
       _resetInput();
       _attach();
-      _loadHarborArt();
+      _loadMapArt();
     }
   }
 
@@ -143,7 +194,9 @@ class _WorldViewState extends State<WorldView>
     widget.changes.removeListener(_hostChanged);
     _ticker.dispose();
     _lifecycle.dispose();
-    _harborArt?.dispose();
+    _artGeneration++;
+    _mapArt?.dispose();
+    _openArt?.dispose();
     _controller.clearInput();
     _focus.dispose();
     super.dispose();
@@ -246,9 +299,18 @@ class _WorldViewState extends State<WorldView>
                           map: widget.map,
                           position: position,
                           showPlayer: error == null,
-                          drawPlayerBody: false,
-                          hideTownNpcs: true,
-                          background: _harborArt,
+                          scene: widget.artwork == null
+                              ? null
+                              : ArtworkWorld.scenes[widget.map.id],
+                          background: _loadedMap == widget.map.id
+                              ? _mapArt
+                              : null,
+                          openBackground: _loadedMap == widget.map.id
+                              ? _openArt
+                              : null,
+                          sluiceOpen: widget.host.state.quests.flags.contains(
+                            ArtworkWorld.sluiceFlag,
+                          ),
                           targets: widget.interactions?.targets ?? const [],
                           landmarks: widget.landmarks,
                           openedChests: widget.host.state.quests.openedChestIds,
@@ -256,74 +318,6 @@ class _WorldViewState extends State<WorldView>
                         ),
                       ),
                     ),
-                    if (error == null)
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final camera = worldCameraOffset(
-                            viewport: constraints.biggest,
-                            mapSize: Size(
-                              widget.map.width * WorldPainter.tileSize,
-                              widget.map.height * WorldPainter.tileSize,
-                            ),
-                            player: Offset(
-                              position.x * WorldPainter.tileSize,
-                              position.y * WorldPainter.tileSize,
-                            ),
-                          );
-                          final townsfolk =
-                              (widget.interactions?.targets ??
-                                      const <WorldTarget>[])
-                                  .where(
-                                    (target) =>
-                                        target.mapId == 'map.bellwether' &&
-                                        target.kind == WorldTargetKind.npc,
-                                  )
-                                  .toList();
-                          return SizedBox.expand(
-                            child: Stack(
-                              children: [
-                                for (final npc in townsfolk)
-                                  Positioned(
-                                    left:
-                                        camera.dx +
-                                        (npc.x + .5) * WorldPainter.tileSize -
-                                        22,
-                                    top:
-                                        camera.dy +
-                                        (npc.y + .5) * WorldPainter.tileSize -
-                                        48,
-                                    child: IgnorePointer(
-                                      child: BellwetherTownspersonSprite(
-                                        variant: npc.id == 'npc.orrin' ? 1 : 0,
-                                      ),
-                                    ),
-                                  ),
-                                Positioned(
-                                  left:
-                                      camera.dx +
-                                      position.x * WorldPainter.tileSize -
-                                      WorldPainter.tileSize / 2,
-                                  top:
-                                      camera.dy +
-                                      position.y * WorldPainter.tileSize -
-                                      WorldPainter.tileSize / 2,
-                                  child: IgnorePointer(
-                                    child: ExplorationHeroSprite(
-                                      directionRow:
-                                          switch (_controller.facing) {
-                                            WalkDirection.down => 0,
-                                            WalkDirection.up => 1,
-                                            WalkDirection.left => 2,
-                                            WalkDirection.right => 3,
-                                          },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
                     if (error != null || !widget.host.movementEnabled)
                       ColoredBox(
                         color: const Color(0x990c171c),
@@ -414,6 +408,9 @@ class WorldPainter extends CustomPainter {
     this.showPlayer = true,
     this.drawPlayerBody = true,
     this.hideTownNpcs = false,
+    this.scene,
+    this.openBackground,
+    this.sluiceOpen = false,
     this.background,
     this.targets = const [],
     this.landmarks = const [],
@@ -426,6 +423,12 @@ class WorldPainter extends CustomPainter {
   final bool drawPlayerBody;
   final bool hideTownNpcs;
   final ui.Image? background;
+  final ui.Image? openBackground;
+  final ArtworkScene? scene;
+  final bool sluiceOpen;
+  double get unit => scene == null ? tileSize : ArtworkScene.displayTile;
+  Size get mapSize =>
+      scene?.displaySize ?? Size(map.width * tileSize, map.height * tileSize);
   final List<WorldTarget> targets;
   final List<WorldLandmark> landmarks;
   final Set<String> openedChests;
@@ -440,12 +443,12 @@ class WorldPainter extends CustomPainter {
     );
     final offset = worldCameraOffset(
       viewport: size,
-      mapSize: Size(map.width * tileSize, map.height * tileSize),
-      player: Offset(position.x * tileSize, position.y * tileSize),
+      mapSize: mapSize,
+      player: Offset(position.x * unit, position.y * unit),
     );
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
-    if (background != null && map.id == 'map.bellwether') {
+    if (background != null && scene != null) {
       canvas.drawImageRect(
         background!,
         Rect.fromLTWH(
@@ -454,19 +457,32 @@ class WorldPainter extends CustomPainter {
           background!.width.toDouble(),
           background!.height.toDouble(),
         ),
-        Rect.fromLTWH(0, 0, map.width * tileSize, map.height * tileSize),
+        Offset.zero & mapSize,
         Paint()..filterQuality = FilterQuality.none,
       );
+      if (sluiceOpen &&
+          openBackground != null &&
+          map.id == ArtworkWorld.dungeon) {
+        final r = CisternGeometry.openArtRegion;
+        canvas.drawImageRect(
+          openBackground!,
+          r,
+          Rect.fromLTWH(
+            r.left * ArtworkScene.zoom,
+            r.top * ArtworkScene.zoom,
+            r.width * ArtworkScene.zoom,
+            r.height * ArtworkScene.zoom,
+          ),
+          Paint()..filterQuality = FilterQuality.none,
+        );
+      }
+    } else if (scene != null) {
+      // Loading art must not flash an unrelated synthetic tile map.
     } else {
       for (var y = 0; y < map.height; y++) {
         for (var x = 0; x < map.width; x++) {
           final blocked = map.blocked[y * map.width + x];
-          final rect = Rect.fromLTWH(
-            x * tileSize,
-            y * tileSize,
-            tileSize,
-            tileSize,
-          );
+          final rect = Rect.fromLTWH(x * unit, y * unit, tileSize, tileSize);
           canvas.drawRect(
             rect,
             Paint()
@@ -499,10 +515,7 @@ class WorldPainter extends CustomPainter {
       }
     }
     for (final landmark in landmarks.where((l) => l.mapId == map.id)) {
-      final center = Offset(
-        (landmark.x + .5) * tileSize,
-        (landmark.y + .5) * tileSize,
-      );
+      final center = Offset((landmark.x + .5) * unit, (landmark.y + .5) * unit);
       final (color, marker) = switch (landmark.kind) {
         WorldLandmarkKind.rest => (const Color(0xffefe8c5), 'R'),
         WorldLandmarkKind.lantern => (const Color(0xffffdd70), 'L'),
@@ -542,10 +555,7 @@ class WorldPainter extends CustomPainter {
               map.id == 'map.bellwether' &&
               target.kind == WorldTargetKind.npc),
     )) {
-      final center = Offset(
-        (target.x + .5) * tileSize,
-        (target.y + .5) * tileSize,
-      );
+      final center = Offset((target.x + .5) * unit, (target.y + .5) * unit);
       final opened = openedChests.contains(target.id);
       final color = switch (target.kind) {
         WorldTargetKind.npc => const Color(0xff6ab9ed),
@@ -565,7 +575,12 @@ class WorldPainter extends CustomPainter {
         text: TextSpan(
           text: switch (target.kind) {
             WorldTargetKind.npc => 'N',
-            WorldTargetKind.quest => '!',
+            WorldTargetKind.quest =>
+              target.id == 'quest.cistern.valve'
+                  ? 'V'
+                  : target.id == 'quest.cistern.bell'
+                  ? 'B'
+                  : '!',
             WorldTargetKind.chest => opened ? '-' : 'C',
             WorldTargetKind.exit => '>',
           },
@@ -582,7 +597,7 @@ class WorldPainter extends CustomPainter {
     }
     final spawn = map.spawns.values.first;
     canvas.drawCircle(
-      Offset(spawn.x * tileSize, spawn.y * tileSize),
+      Offset(spawn.x * unit, spawn.y * unit),
       16,
       Paint()
         ..color = const Color(0xffcfdfb4)
@@ -590,7 +605,7 @@ class WorldPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
     if (showPlayer) {
-      final center = Offset(position.x * tileSize, position.y * tileSize);
+      final center = Offset(position.x * unit, position.y * unit);
       canvas.drawOval(
         Rect.fromCenter(
           center: center + const Offset(0, 10),
@@ -647,6 +662,9 @@ class WorldPainter extends CustomPainter {
       oldDelegate.drawPlayerBody != drawPlayerBody ||
       oldDelegate.hideTownNpcs != hideTownNpcs ||
       oldDelegate.background != background ||
+      oldDelegate.openBackground != openBackground ||
+      oldDelegate.scene != scene ||
+      oldDelegate.sluiceOpen != sluiceOpen ||
       oldDelegate.targets != targets ||
       oldDelegate.landmarks != landmarks ||
       oldDelegate.openedChests != openedChests ||

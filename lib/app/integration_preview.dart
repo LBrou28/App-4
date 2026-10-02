@@ -119,7 +119,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
       final content = DemoContent.decode(
         await rootBundle.loadString('assets/data/lantern_wake.json'),
       );
-      world = InteractionWorld(content);
+      world = InteractionWorld(content, useArtwork: true);
       final entry = world.maps['map.bellwether']!.spawns['entry']!;
       return world.session(
         restored: createLanternInitialState(
@@ -137,6 +137,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
           interactions: world.targets,
           landmarks: world.landmarks,
           mapName: world.names[map.id],
+          artwork: world.artwork,
         ),
   );
 }
