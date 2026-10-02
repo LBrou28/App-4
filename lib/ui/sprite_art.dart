@@ -1,6 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-/// Approved concept artwork used by the playable demo.
+/// Approved artwork and extracted battle sprites used by the alpha.
 abstract final class SpriteAssets {
   static const explorationParty =
       'assets/sprites/concepts/exploration-party-approved.png';
@@ -11,6 +13,9 @@ abstract final class SpriteAssets {
       'assets/sprites/concepts/regular-enemy-concepts.png';
   static const lanternWarden =
       'assets/sprites/concepts/lantern-warden-boss-concept.png';
+  static const battleEnemies =
+      'assets/sprites/battle/regular-enemies-transparent.png';
+  static const battleBoss = 'assets/sprites/battle/hollow-bell-transparent.png';
   static const bellwetherTownsfolk =
       'assets/sprites/townsfolk/bellwether-townsfolk-v2.png';
 }
@@ -121,22 +126,59 @@ class BattlePartyArtwork extends StatelessWidget {
   );
 }
 
+/// Select one battle-sized creature, never the full exploration/concept sheet.
 class EncounterArtwork extends StatelessWidget {
-  const EncounterArtwork({super.key, required this.isBoss});
+  const EncounterArtwork({super.key, required this.enemyId});
+  final String enemyId;
 
-  final bool isBoss;
+  static const regions = <String, Rect>{
+    'enemy.brine_mite': Rect.fromLTRB(210, 288, 640, 612),
+    'enemy.wick_moth': Rect.fromLTRB(890, 170, 1260, 594),
+    'enemy.silt_guard': Rect.fromLTRB(1494, 170, 1956, 638),
+    'enemy.hollow_bell': Rect.fromLTRB(540, 0, 1536, 1024),
+  };
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(12),
-    child: Image.asset(
-      isBoss ? SpriteAssets.lanternWarden : SpriteAssets.regularEnemies,
-      fit: BoxFit.cover,
-      alignment: isBoss ? Alignment.center : Alignment.center,
-      filterQuality: FilterQuality.none,
-      semanticLabel: isBoss
-          ? 'The Hollow Bell, lantern warden boss'
-          : 'Creatures of The Lantern Wake',
-    ),
-  );
+  Widget build(BuildContext context) {
+    final region = regions[enemyId];
+    // Practice/test rosters have no approved art; do not impersonate a campaign
+    // enemy or display every creature just because their IDs are unknown.
+    if (region == null) return const Icon(Icons.pest_control, size: 48);
+    final boss = enemyId == 'enemy.hollow_bell';
+    final sheet = boss ? const Size(1536, 1024) : const Size(1983, 793);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = math.min(
+          constraints.maxWidth / region.width,
+          constraints.maxHeight / region.height,
+        );
+        return Center(
+          child: SizedBox(
+            width: region.width * scale,
+            height: region.height * scale,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: sheet.width * scale,
+                maxWidth: sheet.width * scale,
+                minHeight: sheet.height * scale,
+                maxHeight: sheet.height * scale,
+                child: Transform.translate(
+                  offset: Offset(-region.left * scale, -region.top * scale),
+                  child: Image.asset(
+                    boss ? SpriteAssets.battleBoss : SpriteAssets.battleEnemies,
+                    width: sheet.width * scale,
+                    height: sheet.height * scale,
+                    fit: BoxFit.fill,
+                    filterQuality: FilterQuality.none,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

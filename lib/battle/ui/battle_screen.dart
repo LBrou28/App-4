@@ -172,7 +172,7 @@ class _BattleScreenState extends State<BattleScreen> {
                 children: [
                   for (final enemy in enemies)
                     SizedBox(
-                      width: 180,
+                      width: 220,
                       child: OutlinedButton(
                         key: ValueKey('target-${enemy.id}'),
                         onPressed: _controller.validTarget(enemy)
@@ -191,11 +191,9 @@ class _BattleScreenState extends State<BattleScreen> {
                           child: Column(
                             children: [
                               SizedBox(
-                                height: 52,
+                                height: enemy.isBoss ? 156 : 124,
                                 child: enemy.isAlive
-                                    ? EncounterArtwork(
-                                        isBoss: _controller.session.isBoss,
-                                      )
+                                    ? EncounterArtwork(enemyId: enemy.id)
                                     : const Icon(Icons.close, size: 52),
                               ),
                               const SizedBox(height: 12),
