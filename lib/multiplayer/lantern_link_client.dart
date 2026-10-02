@@ -16,6 +16,8 @@ final class LanternLinkClient extends ChangeNotifier {
   String? _error;
   bool _connecting = false;
   bool _sendingState = false;
+  GameState? _queuedExploration;
+  LanternLinkDialogue? _queuedDialogue;
 
   LanternLinkClientSnapshot? get snapshot => _snapshot;
   String? get playerId => _playerId;
@@ -94,14 +96,25 @@ final class LanternLinkClient extends ChangeNotifier {
   void defend(String actorId) =>
       _command({'actorId': actorId, 'action': 'defend'});
 
-  void publishExploration(GameState state) {
+  void publishExploration(GameState state, {LanternLinkDialogue? dialogue}) {
     final value = _snapshot;
-    if (!isHost || value?.phase != 'exploration' || _sendingState) return;
+    if (!isHost || value?.phase != 'exploration') return;
+    if (_sendingState) {
+      _queuedExploration = state;
+      _queuedDialogue = dialogue;
+      return;
+    }
     _sendingState = true;
     _send({
       'type': 'exploration',
       'revision': value!.revision,
       'state': _stateJson(state),
+      if (dialogue != null)
+        'dialogue': {
+          'id': dialogue.id,
+          'speaker': dialogue.speaker,
+          'lines': dialogue.lines,
+        },
     });
   }
 
@@ -130,6 +143,11 @@ final class LanternLinkClient extends ChangeNotifier {
         );
         _error = null;
         _sendingState = false;
+        final queued = _queuedExploration;
+        final queuedDialogue = _queuedDialogue;
+        _queuedExploration = null;
+        _queuedDialogue = null;
+        if (queued != null) publishExploration(queued, dialogue: queuedDialogue);
       }
     } catch (_) {
       _error = 'Received an unreadable server message.';
@@ -149,6 +167,8 @@ final class LanternLinkClient extends ChangeNotifier {
   void _failed(String message) {
     _error = message;
     _sendingState = false;
+    _queuedExploration = null;
+    _queuedDialogue = null;
     notifyListeners();
   }
 
@@ -178,6 +198,7 @@ final class LanternLinkClientSnapshot {
     required this.players,
     required this.assignments,
     required this.state,
+    this.dialogue,
     this.battle,
   });
 
@@ -195,6 +216,15 @@ final class LanternLinkClientSnapshot {
             entry.key: List<String>.from(entry.value as List),
         },
         state: Map<String, dynamic>.from(json['state'] as Map),
+        dialogue: json['dialogue'] == null
+            ? null
+            : LanternLinkDialogue(
+                id: (json['dialogue'] as Map)['id'] as String,
+                speaker: (json['dialogue'] as Map)['speaker'] as String,
+                lines: List<String>.from(
+                  (json['dialogue'] as Map)['lines'] as List,
+                ),
+              ),
         battle: json['battle'] == null
             ? null
             : Map<String, dynamic>.from(json['battle'] as Map),
@@ -207,6 +237,7 @@ final class LanternLinkClientSnapshot {
   final List<String> players;
   final Map<String, List<String>> assignments;
   final Map<String, dynamic> state;
+  final LanternLinkDialogue? dialogue;
   final Map<String, dynamic>? battle;
 
   /// Converts the server's authoritative exploration payload back into the

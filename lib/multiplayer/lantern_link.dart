@@ -19,6 +19,7 @@ final class LanternLinkSnapshot {
     required List<String> players,
     required Map<String, List<String>> assignments,
     required this.state,
+    this.dialogue,
     this.battle,
   }) : players = List<String>.unmodifiable(players),
        assignments = Map<String, List<String>>.unmodifiable({
@@ -33,7 +34,29 @@ final class LanternLinkSnapshot {
   final List<String> players;
   final Map<String, List<String>> assignments;
   final GameState state;
+  final LanternLinkDialogue? dialogue;
   final BattleSnapshot? battle;
+}
+
+/// A host-authored dialogue payload. The room relays this presentation data but
+/// never resolves completion, quest flags, or rewards.
+final class LanternLinkDialogue {
+  LanternLinkDialogue({
+    required this.id,
+    required this.speaker,
+    required List<String> lines,
+  }) : lines = List.unmodifiable(lines) {
+    requireId(id, 'dialogue id');
+    if (speaker.trim().isEmpty ||
+        lines.isEmpty ||
+        lines.any((line) => line.trim().isEmpty)) {
+      throw ArgumentError('Dialogue needs a speaker and nonempty lines');
+    }
+  }
+
+  final String id;
+  final String speaker;
+  final List<String> lines;
 }
 
 /// A successful server action. Network adapters broadcast this snapshot to all
@@ -67,6 +90,7 @@ final class LanternLinkRoom {
   int _revision = 0;
   int _encounterSequence = 0;
   String? _hostId;
+  LanternLinkDialogue? _dialogue;
 
   LanternLinkSnapshot get snapshot => LanternLinkSnapshot(
     room: name,
@@ -76,6 +100,7 @@ final class LanternLinkRoom {
     players: _players,
     assignments: _assignments,
     state: _state,
+    dialogue: _dialogue,
     battle: _session?.snapshot,
   );
 
@@ -143,6 +168,7 @@ final class LanternLinkRoom {
     String playerId,
     GameState state, {
     required int expectedRevision,
+    LanternLinkDialogue? dialogue,
   }) {
     _requireHost(playerId);
     if (_phase != LanternLinkPhase.exploration ||
@@ -150,6 +176,7 @@ final class LanternLinkRoom {
       throw StateError('Stale or unavailable exploration update');
     }
     _state = state;
+    _dialogue = dialogue;
     return _commit('exploration');
   }
 

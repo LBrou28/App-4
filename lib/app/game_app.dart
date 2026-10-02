@@ -41,7 +41,9 @@ class _GameAppState extends State<GameApp> {
   late final AppLifecycleListener _lifecycle;
   final _navigator = GlobalKey<NavigatorState>();
   DialogRoute<DialogueDismissal>? _dialogueRoute;
+  DialogRoute<void>? _remoteDialogueRoute;
   int? _shownDialogue;
+  String? _shownRemoteDialogue;
   bool _dialogueSyncPending = false;
   MapDefinition? _viewMap;
   Widget? _world;
@@ -228,9 +230,63 @@ class _GameAppState extends State<GameApp> {
   );
 
   void _syncLanternLink() {
-    if (_controller.mode == AppMode.exploration && !_controller.paused) {
-      _lanternLink.publishExploration(_controller.state);
+    final active = _controller.activeDialogue?.dialogue;
+    if (!_controller.paused &&
+        (_controller.mode == AppMode.exploration || active != null)) {
+      _lanternLink.publishExploration(
+        _controller.state,
+        dialogue: active == null
+            ? null
+            : LanternLinkDialogue(
+                id: active.id,
+                speaker: active.speaker,
+                lines: active.lines,
+              ),
+      );
     }
+  }
+
+  void _onLanternLinkChanged() {
+    _syncRemoteLanternLink();
+    _syncRemoteDialogue();
+    if (mounted) setState(() {});
+  }
+
+  void _syncRemoteDialogue() {
+    final snapshot = _lanternLink.snapshot;
+    final dialogue = _lanternLink.isHost ? null : snapshot?.dialogue;
+    final key = dialogue == null ? null : '${snapshot!.revision}:${dialogue.id}';
+    if (key == _shownRemoteDialogue) return;
+    final navigator = _navigator.currentState;
+    if (navigator == null) return;
+    final previous = _remoteDialogueRoute;
+    _remoteDialogueRoute = null;
+    _shownRemoteDialogue = key;
+    if (previous != null && previous.isActive) navigator.removeRoute(previous);
+    if (dialogue == null) return;
+    final route = DialogRoute<void>(
+      context: navigator.context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: Text(dialogue.speaker),
+        content: SizedBox(
+          width: 480,
+          child: Text(dialogue.lines.join('\n\n')),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    _remoteDialogueRoute = route;
+    navigator.push(route).then((_) {
+      if (mounted && _remoteDialogueRoute == route) {
+        _remoteDialogueRoute = null;
+      }
+    });
   }
 
   void _syncRemoteLanternLink() {
@@ -270,7 +326,7 @@ class _GameAppState extends State<GameApp> {
     _lanternLink = LanternLinkClient();
     _controller.addListener(_scheduleDialogue);
     _controller.addListener(_syncLanternLink);
-    _lanternLink.addListener(_syncRemoteLanternLink);
+    _lanternLink.addListener(_onLanternLinkChanged);
     _lifecycle = AppLifecycleListener(
       onInactive: () => _controller.setPaused(true),
       onHide: () => _controller.setPaused(true),
@@ -284,7 +340,7 @@ class _GameAppState extends State<GameApp> {
     _worldFocus.dispose();
     _controller.removeListener(_scheduleDialogue);
     _controller.removeListener(_syncLanternLink);
-    _lanternLink.removeListener(_syncRemoteLanternLink);
+    _lanternLink.removeListener(_onLanternLinkChanged);
     _controller.dispose();
     _lanternLink.dispose();
     super.dispose();
@@ -358,6 +414,7 @@ class _GameAppState extends State<GameApp> {
             }
             final exploring = _controller.mode == AppMode.exploration;
             final battling = _controller.mode == AppMode.battle;
+            final sharedBattle = _lanternLink.snapshot?.phase == 'battle';
             return Scaffold(
               appBar: AppBar(
                 title: Text(widget.title),
@@ -498,6 +555,13 @@ class _GameAppState extends State<GameApp> {
                         ],
                       ),
                     ),
+                  if (sharedBattle)
+                    Positioned.fill(
+                      child: _LanternLinkBattleOverlay(
+                        client: _lanternLink,
+                        names: widget.battleNames,
+                      ),
+                    ),
                   if ((exploring || battling) && _controller.paused)
                     Positioned.fill(
                       child: ColoredBox(
@@ -538,4 +602,67 @@ class _GameAppState extends State<GameApp> {
       ),
     ),
   );
+}
+
+class _LanternLinkBattleOverlay extends StatelessWidget {
+  const _LanternLinkBattleOverlay({required this.client, required this.names});
+  final LanternLinkClient client;
+  final Map<String, String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = client.snapshot!;
+    final battle = snapshot.battle!;
+    final combatants = [
+      for (final raw in battle['combatants'] as List)
+        Map<String, dynamic>.from(raw as Map),
+    ];
+    final enemies = combatants
+        .where((value) => value['side'] == 'enemies' && (value['hp'] as int) > 0)
+        .toList();
+    final owned = (snapshot.assignments[client.playerId] ?? const <String>[]).toSet();
+    return Material(
+      color: const Color(0xff102027),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Shared battle • Round ${battle['round']}',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final value in combatants)
+                      ListTile(
+                        title: Text(names[value['id']] ?? value['id'] as String),
+                        subtitle: Text('${value['side']} • HP ${value['hp']} / ${value['maxHp']}'),
+                      ),
+                  ],
+                ),
+              ),
+              for (final hero in combatants.where(
+                (value) => value['side'] == 'heroes' && owned.contains(value['id']) && (value['hp'] as int) > 0,
+              ))
+                Row(
+                  children: [
+                    Expanded(child: Text(names[hero['id']] ?? hero['id'] as String)),
+                    OutlinedButton(onPressed: () => client.defend(hero['id'] as String), child: const Text('Defend')),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: enemies.isEmpty ? null : () => client.attack(hero['id'] as String, enemies.first['id'] as String),
+                      child: const Text('Attack'),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 12),
+              const Text('Choose actions only for your assigned heroes. The server resolves the round for everyone.'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

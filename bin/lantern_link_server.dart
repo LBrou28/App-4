@@ -135,6 +135,9 @@ final class LanternLinkServer {
           playerId,
           _state(Map<String, dynamic>.from(json['state'] as Map)),
           expectedRevision: json['revision'] as int,
+          dialogue: json['dialogue'] == null
+              ? null
+              : _dialogue(Map<String, dynamic>.from(json['dialogue'] as Map)),
         );
       case 'battleStart':
         return room.beginBattle(
@@ -193,6 +196,12 @@ Map<String, Object?> _snapshot(LanternLinkSnapshot value) => {
   'players': value.players,
   'assignments': value.assignments,
   'state': _stateJson(value.state),
+  if (value.dialogue != null)
+    'dialogue': {
+      'id': value.dialogue!.id,
+      'speaker': value.dialogue!.speaker,
+      'lines': value.dialogue!.lines,
+    },
   if (value.battle != null)
     'battle': {
       'round': value.battle!.round,
@@ -211,6 +220,12 @@ Map<String, Object?> _snapshot(LanternLinkSnapshot value) => {
       ],
     },
 };
+
+LanternLinkDialogue _dialogue(Map<String, dynamic> json) => LanternLinkDialogue(
+  id: json['id'] as String,
+  speaker: json['speaker'] as String,
+  lines: List<String>.from(json['lines'] as List),
+);
 
 Map<String, Object?> _stateJson(GameState state) => {
   'position': {
