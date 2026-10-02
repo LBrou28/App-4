@@ -10,6 +10,7 @@ class WorldController {
     required this.collision,
     this.encounters,
     this.interactions,
+    this.onMapExit,
     this.speed = tilesPerSecond,
   });
 
@@ -18,6 +19,7 @@ class WorldController {
   final WorldCollision collision;
   final EncounterStepper? encounters;
   final WorldInteractions? interactions;
+  final void Function(WorldTarget)? onMapExit;
   WalkDirection facing = WalkDirection.down;
   String? interactionMessage;
 
@@ -115,9 +117,15 @@ class WorldController {
     final next = collision.move(state.position, active, speed * dt);
     if (next.x == state.position.x && next.y == state.position.y) return false;
     final accepted = host.updatePosition(next, expectedRevision: revision);
-    if (accepted && interactions?.exitAfterMovement(host) == true) {
-      clearInput();
-      return true;
+    if (accepted) {
+      final exit = interactions?.exitAt(host);
+      if (exit != null &&
+          host is WorldInteractionHost &&
+          host.useMapExit(exit.id, expectedRevision: host.revision)) {
+        onMapExit?.call(exit);
+        clearInput();
+        return true;
+      }
     }
     // Host notifications have finished. Count only committed physical travel,
     // never attempted distance, elapsed frames, or an external teleport.

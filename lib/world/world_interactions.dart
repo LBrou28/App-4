@@ -116,16 +116,21 @@ final class WorldInteractions {
   WorldTarget? inFront(WorldPosition p, WalkDirection facing) =>
       targets.where((t) => t.inFront(p, facing)).firstOrNull;
 
-  bool exitAfterMovement(WorldHost host) {
-    if (host is! WorldInteractionHost || !host.movementEnabled) return false;
-    final exit = targets
+  WorldTarget? exitAt(WorldHost host) {
+    if (host is! WorldInteractionHost || !host.movementEnabled) return null;
+    return targets
         .where(
-          (t) =>
-              t.kind == WorldTargetKind.exit &&
-              t.reachable(host.state.position),
+          (target) =>
+              target.kind == WorldTargetKind.exit &&
+              target.reachable(host.state.position),
         )
         .firstOrNull;
-    return exit != null &&
+  }
+
+  bool exitAfterMovement(WorldHost host) {
+    final exit = exitAt(host);
+    return host is WorldInteractionHost &&
+        exit != null &&
         host.useMapExit(exit.id, expectedRevision: host.revision);
   }
 }

@@ -56,6 +56,7 @@ class _WorldViewState extends State<WorldView>
   ui.Image? _mapArt;
   ui.Image? _openArt;
   String? _loadedMap;
+  String? _departureHint;
   int _artGeneration = 0;
 
   static final _keys = <LogicalKeyboardKey, WalkDirection>{
@@ -95,6 +96,7 @@ class _WorldViewState extends State<WorldView>
       speed: widget.artwork == null ? WorldController.tilesPerSecond : 14,
       encounters: widget.encounters,
       interactions: widget.interactions,
+      onMapExit: _onMapExit,
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
@@ -160,10 +162,38 @@ class _WorldViewState extends State<WorldView>
 
   void _hostChanged() {
     _controller.synchronize();
+    if (widget.host.state.quests.flags.contains('quest.lantern.accepted')) {
+      _departureHint = null;
+    }
     if (!widget.host.movementEnabled || _controller.positionError != null) {
       _lastFrame = null;
     }
     if (mounted) setState(() {});
+  }
+
+  void _onMapExit(WorldTarget exit) {
+    if (exit.id == 'exit.harbor_to_causeway' &&
+        !widget.host.state.quests.flags.contains('quest.lantern.accepted')) {
+      _departureHint =
+          'Before you go: Keeper Mara needs to speak with you at the harbor lantern.';
+    }
+  }
+
+  String get _questObjective {
+    final flags = widget.host.state.quests.flags;
+    if (!flags.contains('quest.lantern.accepted')) {
+      return 'Talk to Keeper Mara at the harbor lantern.';
+    }
+    if (!flags.contains(ArtworkWorld.sluiceFlag)) {
+      return 'Reach the Tide Cistern and turn the northwest valve.';
+    }
+    if (!flags.contains('quest.lantern.bell_awake')) {
+      return 'Enter the beacon chamber and face the Hollow Bell.';
+    }
+    if (!flags.contains('quest.lantern.complete')) {
+      return 'Return to Keeper Mara in Bellwether Harbor.';
+    }
+    return 'The tide returns to Bellwether.';
   }
 
   void _tick(Duration now) {
@@ -217,6 +247,7 @@ class _WorldViewState extends State<WorldView>
   }
 
   void _press(Object source, WalkDirection direction) {
+    _departureHint = null;
     _controller.press(source, direction);
     setState(() {}); // Facing changes even when a solid target blocks movement.
   }
@@ -277,11 +308,34 @@ class _WorldViewState extends State<WorldView>
               width: double.infinity,
               color: const Color(0xff14272f),
               padding: const EdgeInsets.all(10),
-              child: Text(
-                '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests\n'
-                '${_controller.interactionMessage ?? 'Blue: people · Gold: chest · Teal: walk onto an exit'}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+              child: Column(
+                children: [
+                  Text(
+                    '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'WAKE THE TIDE  ·  $_questObjective',
+                    key: const ValueKey('quest-objective'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xffffd36e),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if ((_controller.interactionMessage ?? _departureHint)
+                      case final message?) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      message,
+                      key: const ValueKey('world-guidance-message'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xffcde8ef)),
+                    ),
+                  ],
+                ],
               ),
             ),
           Expanded(
@@ -352,6 +406,28 @@ class _WorldViewState extends State<WorldView>
                           return SizedBox.expand(
                             child: Stack(
                               children: [
+                                for (final npc in townsfolk)
+                                  if (npc.id == 'npc.mara' &&
+                                      !widget.host.state.quests.flags.contains(
+                                        'quest.lantern.accepted',
+                                      ))
+                                    Positioned(
+                                      left:
+                                          camera.dx +
+                                          (npc.x + .5) * unit -
+                                          15,
+                                      top:
+                                          camera.dy +
+                                          (npc.y + .5) * unit -
+                                          74,
+                                      child: const IgnorePointer(
+                                        child: Semantics(
+                                          label:
+                                              'Quest available from Keeper Mara',
+                                          child: _QuestMarker(),
+                                        ),
+                                      ),
+                                    ),
                                 for (final npc in townsfolk)
                                   Positioned(
                                     left:
@@ -469,6 +545,31 @@ class _WorldViewState extends State<WorldView>
       ),
     );
   }
+}
+
+class _QuestMarker extends StatelessWidget {
+  const _QuestMarker();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('quest-marker-mara'),
+    width: 30,
+    height: 30,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: const Color(0xffffd36e),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xff14272f), width: 3),
+    ),
+    child: const Text(
+      '!',
+      style: TextStyle(
+        color: Color(0xff14272f),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
 }
 
 class WorldPainter extends CustomPainter {
