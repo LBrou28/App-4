@@ -6,6 +6,7 @@ import '../battle/ui/battle_screen.dart';
 import '../multiplayer/lantern_link.dart';
 import '../multiplayer/lantern_link_client.dart';
 import '../ui/dialogue_panel.dart';
+import '../ui/game_theme.dart';
 import '../ui/lantern_link_dialog.dart';
 import 'app_controller.dart';
 import 'world_view_builder.dart';
@@ -651,66 +652,117 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
         .toList();
     final owned = (snapshot.assignments[client.playerId] ?? const <String>[])
         .toSet();
-    return Material(
-      color: const Color(0xff102027),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Shared battle • Round ${battle['round']}',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final value in combatants)
-                      ListTile(
-                        title: Text(
-                          names[value['id']] ?? value['id'] as String,
+    final heroes = combatants
+        .where((value) => value['side'] == 'heroes')
+        .toList();
+    String name(Map<String, dynamic> value) =>
+        names[value['id']] ?? value['id'] as String;
+    Widget card(BuildContext context, Map<String, dynamic> value) => Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xff344752)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(
+            value['side'] == 'enemies' ? Icons.pest_control : Icons.shield_outlined,
+            size: 34,
+          ),
+          const SizedBox(height: 8),
+          Text(name(value), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: (value['hp'] as int) / (value['maxHp'] as int),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          const SizedBox(height: 8),
+          Text('HP ${value['hp']} / ${value['maxHp']}', textAlign: TextAlign.center),
+          Text('MP ${value['mp']} / ${value['maxMp']}', textAlign: TextAlign.center),
+        ],
+      ),
+    );
+    return Theme(
+      data: lanternTheme(),
+      child: Scaffold(
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 1000;
+              final arena = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  MenuPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Enemy formation', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [for (final enemy in enemies) SizedBox(width: 180, child: card(context, enemy))],
                         ),
-                        subtitle: Text(
-                          '${value['side']} • HP ${value['hp']} / ${value['maxHp']}',
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('YOUR PARTY', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [for (final hero in heroes) SizedBox(width: wide ? 160 : 145, child: card(context, hero))],
+                  ),
+                ],
+              );
+              final controls = MenuPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Shared battle', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    Text('Round ${battle['round']} • Choose actions for your assigned heroes.'),
+                    const SizedBox(height: 16),
+                    for (final hero in heroes.where((value) => owned.contains(value['id']) && (value['hp'] as int) > 0))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(name(hero))),
+                            OutlinedButton(onPressed: () => client.defend(hero['id'] as String), child: const Text('Defend')),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: enemies.isEmpty ? null : () => client.attack(hero['id'] as String, enemies.first['id'] as String),
+                              child: const Text('Attack'),
+                            ),
+                          ],
                         ),
                       ),
+                    if (!heroes.any((value) => owned.contains(value['id'])))
+                      const Text('Waiting for the players assigned to this round.'),
+                    const SizedBox(height: 8),
+                    const Text('The Lantern Link server resolves the round after every assigned hero has chosen.'),
                   ],
                 ),
-              ),
-              for (final hero in combatants.where(
-                (value) =>
-                    value['side'] == 'heroes' &&
-                    owned.contains(value['id']) &&
-                    (value['hp'] as int) > 0,
-              ))
-                Row(
+              );
+              return SingleChildScrollView(
+                padding: EdgeInsets.all(wide ? 24 : 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Text(names[hero['id']] ?? hero['id'] as String),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => client.defend(hero['id'] as String),
-                      child: const Text('Defend'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: enemies.isEmpty
-                          ? null
-                          : () => client.attack(
-                              hero['id'] as String,
-                              enemies.first['id'] as String,
-                            ),
-                      child: const Text('Attack'),
-                    ),
+                    Text('LANTERN TRAIL', style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 3)),
+                    Text('Battle', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 20),
+                    if (wide) Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: arena), const SizedBox(width: 20), SizedBox(width: 340, child: controls)]) else ...[arena, const SizedBox(height: 16), controls],
                   ],
                 ),
-              const SizedBox(height: 12),
-              const Text(
-                'Choose actions only for your assigned heroes. The server resolves the round for everyone.',
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
