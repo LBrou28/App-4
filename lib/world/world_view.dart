@@ -339,15 +339,16 @@ class _WorldViewState extends State<WorldView>
                             mapSize: mapSize,
                             player: Offset(position.x * unit, position.y * unit),
                           );
-                          final townsfolk =
-                              (widget.interactions?.targets ??
-                                      const <WorldTarget>[])
-                                  .where(
-                                    (target) =>
-                                        target.mapId == ArtworkWorld.town &&
-                                        target.kind == WorldTargetKind.npc,
-                                  )
-                                  .toList();
+                          final townsfolk = widget.map.id == ArtworkWorld.town
+                              ? (widget.interactions?.targets ??
+                                        const <WorldTarget>[])
+                                    .where(
+                                      (target) =>
+                                          target.mapId == ArtworkWorld.town &&
+                                          target.kind == WorldTargetKind.npc,
+                                    )
+                                    .toList()
+                              : const <WorldTarget>[];
                           return SizedBox.expand(
                             child: Stack(
                               children: [
