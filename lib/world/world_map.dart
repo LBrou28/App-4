@@ -40,7 +40,7 @@ MapDefinition parseWorldMap(String id, List<String> rows) {
 /// Axis-aligned square footprint, 0.56 tiles wide. Tile edges may touch.
 /// Cardinal sweeps visit every crossed tile, so even large steps cannot tunnel.
 class WorldCollision {
-  WorldCollision(this.map, {this.halfSize = .28}) {
+  WorldCollision(this.map, {this.halfSize = .28, this.clearance, this.sweep}) {
     if (!halfSize.isFinite || halfSize <= 0 || halfSize >= .5) {
       throw ArgumentError.value(halfSize, 'halfSize');
     }
@@ -53,9 +53,12 @@ class WorldCollision {
 
   final MapDefinition map;
   final double halfSize;
+  final bool Function(WorldPosition)? clearance;
+  final WorldPosition Function(WorldPosition, WalkDirection, double)? sweep;
   static const _epsilon = 1e-9;
 
   bool isClear(WorldPosition p) {
+    if (clearance != null) return p.mapId == map.id && clearance!(p);
     if (p.mapId != map.id ||
         p.x - halfSize < -_epsilon ||
         p.y - halfSize < -_epsilon ||
@@ -92,6 +95,7 @@ class WorldCollision {
   ) {
     if (!distance.isFinite || distance < 0) throw ArgumentError.value(distance);
     if (!isClear(p)) throw StateError('Invalid world position for ${map.id}');
+    if (sweep != null) return sweep!(p, direction, distance);
     final horizontal =
         direction == WalkDirection.left || direction == WalkDirection.right;
     final positive =

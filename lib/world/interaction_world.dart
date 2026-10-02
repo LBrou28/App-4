@@ -5,12 +5,23 @@ import '../core/contracts.dart';
 import '../core/fixtures/contract_fixture.dart';
 import '../ui/content/demo_content.dart';
 import 'world_interactions.dart';
+import 'artwork_world.dart';
 import 'world_map.dart';
 
 /// B4's playable tutorial-island geometry. It deliberately supplies no new
 /// story effects; D's content and A's operations own those later handoffs.
 final class InteractionWorld {
-  InteractionWorld(DemoContent content) {
+  InteractionWorld(DemoContent content, {bool useArtwork = false}) {
+    if (useArtwork) {
+      _content = content;
+      artwork = ArtworkWorld(content);
+      targets = artwork!.targets;
+      landmarks = artwork!.landmarks;
+      maps = artwork!.maps;
+      names = artwork!.names;
+      operations = artwork!.operations;
+      return;
+    }
     _content = content;
     WorldTarget target(
       String id,
@@ -287,6 +298,7 @@ final class InteractionWorld {
     }
   }
 
+  ArtworkWorld? artwork;
   late final WorldInteractions targets;
   late final List<WorldLandmark> landmarks;
   late final DemoContent _content;
@@ -337,7 +349,8 @@ final class InteractionWorld {
       map: map,
       initialState:
           restored ?? createContractFixture(position: map.spawns['entry']!),
-      isClear: WorldCollision(map).isClear,
+      isClear:
+          artwork?.collision(map.id).isClear ?? WorldCollision(map).isClear,
       operations: operations,
       contentVersion: _content.version,
       validateSavedState: (state) {
