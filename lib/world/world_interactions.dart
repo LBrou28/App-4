@@ -49,6 +49,7 @@ final class WorldTarget {
     required this.y,
     required this.label,
     required this.kind,
+    this.reachRadius,
   }) {
     requireId(id, 'world target');
     requireId(mapId, 'target map');
@@ -63,17 +64,32 @@ final class WorldTarget {
   final int y;
   final String label;
   final WorldTargetKind kind;
+  final double? reachRadius;
 
   /// Adjacent cardinal tiles cannot reach through an intervening wall. NPCs and
   /// chests occupy blocked tiles; exits occupy a clear tile under the player.
-  bool reachable(WorldPosition p) =>
-      p.mapId == mapId &&
-      (kind == WorldTargetKind.exit
-          ? p.x.floor() == x && p.y.floor() == y
-          : (p.x.floor() - x).abs() + (p.y.floor() - y).abs() == 1);
+  bool reachable(WorldPosition p) {
+    if (p.mapId != mapId) return false;
+    if (reachRadius != null) {
+      final dx = p.x - (x + .5), dy = p.y - (y + .5);
+      return dx * dx + dy * dy <= reachRadius! * reachRadius!;
+    }
+    return kind == WorldTargetKind.exit
+        ? p.x.floor() == x && p.y.floor() == y
+        : (p.x.floor() - x).abs() + (p.y.floor() - y).abs() == 1;
+  }
 
   bool inFront(WorldPosition p, WalkDirection facing) {
     if (!reachable(p) || kind == WorldTargetKind.exit) return false;
+    if (reachRadius != null) {
+      final dx = x + .5 - p.x, dy = y + .5 - p.y;
+      return switch (facing) {
+        WalkDirection.up => dy < 0 && dy.abs() >= dx.abs(),
+        WalkDirection.down => dy > 0 && dy.abs() >= dx.abs(),
+        WalkDirection.left => dx < 0 && dx.abs() >= dy.abs(),
+        WalkDirection.right => dx > 0 && dx.abs() >= dy.abs(),
+      };
+    }
     final (dx, dy) = switch (facing) {
       WalkDirection.up => (0, -1),
       WalkDirection.down => (0, 1),

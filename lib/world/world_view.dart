@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
@@ -5,6 +7,9 @@ import 'package:flutter/services.dart';
 
 import '../app/world_view_builder.dart';
 import '../core/contracts.dart';
+import '../ui/sprite_art.dart';
+import 'artwork_world.dart';
+import 'cistern_geometry.dart';
 import 'world_camera.dart';
 import 'world_controller.dart';
 import 'world_map.dart';
@@ -26,6 +31,7 @@ class WorldView extends StatefulWidget {
     this.interactions,
     this.landmarks = const [],
     this.mapName,
+    this.artwork,
   });
   final MapDefinition map;
   final WorldHost host;
@@ -34,6 +40,7 @@ class WorldView extends StatefulWidget {
   final WorldInteractions? interactions;
   final List<WorldLandmark> landmarks;
   final String? mapName;
+  final ArtworkWorld? artwork;
 
   @override
   State<WorldView> createState() => _WorldViewState();
@@ -46,6 +53,10 @@ class _WorldViewState extends State<WorldView>
   late AppLifecycleListener _lifecycle;
   final _focus = FocusNode(debugLabel: 'B1 world controls');
   Duration? _lastFrame;
+  ui.Image? _mapArt;
+  ui.Image? _openArt;
+  String? _loadedMap;
+  int _artGeneration = 0;
 
   static final _keys = <LogicalKeyboardKey, WalkDirection>{
     LogicalKeyboardKey.arrowUp: WalkDirection.up,
@@ -62,6 +73,7 @@ class _WorldViewState extends State<WorldView>
   void initState() {
     super.initState();
     _attach();
+    _loadMapArt();
     _ticker = createTicker(_tick)..start();
     _lifecycle = AppLifecycleListener(
       onInactive: _resetInput,
@@ -74,12 +86,71 @@ class _WorldViewState extends State<WorldView>
   void _attach() {
     _controller = WorldController(
       host: widget.host,
-      collision: WorldCollision(widget.map),
+      collision:
+          widget.artwork?.collision(
+            widget.map.id,
+            flags: () => widget.host.state.quests.flags,
+          ) ??
+          WorldCollision(widget.map),
+      speed: widget.artwork == null ? WorldController.tilesPerSecond : 14,
       encounters: widget.encounters,
       interactions: widget.interactions,
     );
     _controller.synchronize();
     widget.changes.addListener(_hostChanged);
+  }
+
+  Future<void> _loadMapArt() async {
+    final generation = ++_artGeneration;
+    final scene = widget.artwork == null
+        ? null
+        : ArtworkWorld.scenes[widget.map.id];
+    _mapArt?.dispose();
+    _openArt?.dispose();
+    _mapArt = null;
+    _openArt = null;
+    _loadedMap = null;
+    if (scene == null) return;
+    Future<ui.Image> image(String asset) async {
+      final data = await rootBundle.load(asset);
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      return frame.image;
+    }
+
+    ui.Image? base, open;
+    try {
+      base = await image(scene.asset);
+      if (scene.id == ArtworkWorld.dungeon) {
+        open = await image('assets/maps/drowned_cistern_open_sluice_v2.png');
+      }
+      if (!mounted || generation != _artGeneration) {
+        base.dispose();
+        open?.dispose();
+        return;
+      }
+      setState(() {
+        _mapArt = base;
+        _openArt = open;
+        _loadedMap = scene.id;
+      });
+    } catch (error, stack) {
+      base?.dispose();
+      open?.dispose();
+      if (mounted && generation == _artGeneration) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'world artwork',
+            context: ErrorDescription('loading ${scene.asset}'),
+          ),
+        );
+      }
+    }
   }
 
   void _resetInput() {
@@ -93,6 +164,31 @@ class _WorldViewState extends State<WorldView>
       _lastFrame = null;
     }
     if (mounted) setState(() {});
+  }
+
+  String get _questObjective {
+    final flags = widget.host.state.quests.flags;
+    if (!flags.contains('quest.lantern.accepted')) {
+      return 'Talk to Keeper Mara at the harbor lantern.';
+    }
+    if (!flags.contains(ArtworkWorld.sluiceFlag)) {
+      return 'Reach the Tide Cistern and turn the northwest valve.';
+    }
+    if (!flags.contains('quest.lantern.bell_awake')) {
+      return 'Enter the beacon chamber and face the Hollow Bell.';
+    }
+    if (!flags.contains('quest.lantern.complete')) {
+      return 'Return to Keeper Mara in Bellwether Harbor.';
+    }
+    return 'The tide returns to Bellwether.';
+  }
+
+  String? get _earlyDepartureHint {
+    final flags = widget.host.state.quests.flags;
+    return widget.map.id == ArtworkWorld.route &&
+            !flags.contains('quest.lantern.accepted')
+        ? 'Before you go: Keeper Mara needs to speak with you at the harbor lantern.'
+        : null;
   }
 
   void _tick(Duration now) {
@@ -110,10 +206,12 @@ class _WorldViewState extends State<WorldView>
         oldWidget.changes != widget.changes ||
         oldWidget.map != widget.map ||
         oldWidget.encounters != widget.encounters ||
-        oldWidget.interactions != widget.interactions) {
+        oldWidget.interactions != widget.interactions ||
+        oldWidget.artwork != widget.artwork) {
       oldWidget.changes.removeListener(_hostChanged);
       _resetInput();
       _attach();
+      _loadMapArt();
     }
   }
 
@@ -122,6 +220,9 @@ class _WorldViewState extends State<WorldView>
     widget.changes.removeListener(_hostChanged);
     _ticker.dispose();
     _lifecycle.dispose();
+    _artGeneration++;
+    _mapArt?.dispose();
+    _openArt?.dispose();
     _controller.clearInput();
     _focus.dispose();
     super.dispose();
@@ -201,11 +302,34 @@ class _WorldViewState extends State<WorldView>
               width: double.infinity,
               color: const Color(0xff14272f),
               padding: const EdgeInsets.all(10),
-              child: Text(
-                '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests\n'
-                '${_controller.interactionMessage ?? 'Blue: people · Gold: chest · Teal: walk onto an exit'}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+              child: Column(
+                children: [
+                  Text(
+                    '${widget.mapName ?? widget.map.id}  ·  E / Interact to talk or open chests',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'WAKE THE TIDE  ·  $_questObjective',
+                    key: const ValueKey('quest-objective'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xffffd36e),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if ((_controller.interactionMessage ?? _earlyDepartureHint)
+                      case final message?) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      message,
+                      key: const ValueKey('world-guidance-message'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xffcde8ef)),
+                    ),
+                  ],
+                ],
               ),
             ),
           Expanded(
@@ -224,6 +348,20 @@ class _WorldViewState extends State<WorldView>
                           map: widget.map,
                           position: position,
                           showPlayer: error == null,
+                          drawPlayerBody: false,
+                          hideTownNpcs: true,
+                          scene: widget.artwork == null
+                              ? null
+                              : ArtworkWorld.scenes[widget.map.id],
+                          background: _loadedMap == widget.map.id
+                              ? _mapArt
+                              : null,
+                          openBackground: _loadedMap == widget.map.id
+                              ? _openArt
+                              : null,
+                          sluiceOpen: widget.host.state.quests.flags.contains(
+                            ArtworkWorld.sluiceFlag,
+                          ),
                           targets: widget.interactions?.targets ?? const [],
                           landmarks: widget.landmarks,
                           openedChests: widget.host.state.quests.openedChestIds,
@@ -231,10 +369,88 @@ class _WorldViewState extends State<WorldView>
                         ),
                       ),
                     ),
-                    // Input can be unavailable while a Lantern Link guest is
-                    // rendering the host's state. Keep that read-only state
-                    // unobtrusive; only an invalid map position warrants an
-                    // error overlay.
+                    if (error == null)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final scene = ArtworkWorld.scenes[widget.map.id];
+                          final unit = scene == null
+                              ? WorldPainter.tileSize
+                              : ArtworkScene.displayTile;
+                          final mapSize =
+                              scene?.displaySize ??
+                              Size(
+                                widget.map.width * WorldPainter.tileSize,
+                                widget.map.height * WorldPainter.tileSize,
+                              );
+                          final camera = worldCameraOffset(
+                            viewport: constraints.biggest,
+                            mapSize: mapSize,
+                            player: Offset(
+                              position.x * unit,
+                              position.y * unit,
+                            ),
+                          );
+                          final townsfolk = widget.map.id == ArtworkWorld.town
+                              ? (widget.interactions?.targets ??
+                                        const <WorldTarget>[])
+                                    .where(
+                                      (target) =>
+                                          target.mapId == ArtworkWorld.town &&
+                                          target.kind == WorldTargetKind.npc,
+                                    )
+                                    .toList()
+                              : const <WorldTarget>[];
+                          return SizedBox.expand(
+                            child: Stack(
+                              children: [
+                                for (final npc in townsfolk)
+                                  if (npc.id == 'npc.mara' &&
+                                      !widget.host.state.quests.flags.contains(
+                                        'quest.lantern.accepted',
+                                      ))
+                                    Positioned(
+                                      left:
+                                          camera.dx + (npc.x + .5) * unit - 15,
+                                      top: camera.dy + (npc.y + .5) * unit - 74,
+                                      child: IgnorePointer(
+                                        child: Semantics(
+                                          label: 'Quest available from Keeper Mara',
+                                          child: _QuestMarker(),
+                                        ),
+                                      ),
+                                    ),
+                                for (final npc in townsfolk)
+                                  Positioned(
+                                    left: camera.dx + (npc.x + .5) * unit - 18,
+                                    top: camera.dy + (npc.y + .5) * unit - 46,
+                                    child: IgnorePointer(
+                                      child: BellwetherTownspersonSprite(
+                                        variant: npc.id == 'npc.orrin' ? 1 : 0,
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  left: camera.dx + position.x * unit - 24,
+                                  top: camera.dy + position.y * unit - 48,
+                                  child: IgnorePointer(
+                                    child: ExplorationHeroSprite(
+                                      directionRow:
+                                          switch (_controller.facing) {
+                                            WalkDirection.down => 0,
+                                            WalkDirection.up => 1,
+                                            WalkDirection.left => 2,
+                                            WalkDirection.right => 3,
+                                          },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    // A Lantern Link guest is intentionally read-only but
+                    // must still be able to see the host's exploration.
                     if (error != null)
                       ColoredBox(
                         color: const Color(0x990c171c),
@@ -318,11 +534,42 @@ class _WorldViewState extends State<WorldView>
   }
 }
 
+class _QuestMarker extends StatelessWidget {
+  const _QuestMarker();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('quest-marker-mara'),
+    width: 30,
+    height: 30,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: const Color(0xffffd36e),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xff14272f), width: 3),
+    ),
+    child: const Text(
+      '!',
+      style: TextStyle(
+        color: Color(0xff14272f),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
+}
+
 class WorldPainter extends CustomPainter {
   WorldPainter({
     required this.map,
     required this.position,
     this.showPlayer = true,
+    this.drawPlayerBody = true,
+    this.hideTownNpcs = false,
+    this.scene,
+    this.openBackground,
+    this.sluiceOpen = false,
+    this.background,
     this.targets = const [],
     this.landmarks = const [],
     this.openedChests = const {},
@@ -331,6 +578,15 @@ class WorldPainter extends CustomPainter {
   final MapDefinition map;
   final WorldPosition position;
   final bool showPlayer;
+  final bool drawPlayerBody;
+  final bool hideTownNpcs;
+  final ui.Image? background;
+  final ui.Image? openBackground;
+  final ArtworkScene? scene;
+  final bool sluiceOpen;
+  double get unit => scene == null ? tileSize : ArtworkScene.displayTile;
+  Size get mapSize =>
+      scene?.displaySize ?? Size(map.width * tileSize, map.height * tileSize);
   final List<WorldTarget> targets;
   final List<WorldLandmark> landmarks;
   final Set<String> openedChests;
@@ -345,55 +601,79 @@ class WorldPainter extends CustomPainter {
     );
     final offset = worldCameraOffset(
       viewport: size,
-      mapSize: Size(map.width * tileSize, map.height * tileSize),
-      player: Offset(position.x * tileSize, position.y * tileSize),
+      mapSize: mapSize,
+      player: Offset(position.x * unit, position.y * unit),
     );
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
-    for (var y = 0; y < map.height; y++) {
-      for (var x = 0; x < map.width; x++) {
-        final blocked = map.blocked[y * map.width + x];
-        final rect = Rect.fromLTWH(
-          x * tileSize,
-          y * tileSize,
-          tileSize,
-          tileSize,
+    if (background != null && scene != null) {
+      canvas.drawImageRect(
+        background!,
+        Rect.fromLTWH(
+          0,
+          0,
+          background!.width.toDouble(),
+          background!.height.toDouble(),
+        ),
+        Offset.zero & mapSize,
+        Paint()..filterQuality = FilterQuality.none,
+      );
+      if (sluiceOpen &&
+          openBackground != null &&
+          map.id == ArtworkWorld.dungeon) {
+        final r = CisternGeometry.openArtRegion;
+        canvas.drawImageRect(
+          openBackground!,
+          r,
+          Rect.fromLTWH(
+            r.left * ArtworkScene.zoom,
+            r.top * ArtworkScene.zoom,
+            r.width * ArtworkScene.zoom,
+            r.height * ArtworkScene.zoom,
+          ),
+          Paint()..filterQuality = FilterQuality.none,
         );
-        canvas.drawRect(
-          rect,
-          Paint()
-            ..color = blocked
-                ? const Color(0xff30484b)
-                : ((x + y).isEven
-                      ? const Color(0xff80917b)
-                      : const Color(0xff7a8b75)),
-        );
-        if (blocked) {
+      }
+    } else if (scene != null) {
+      // Loading art must not flash an unrelated synthetic tile map.
+    } else {
+      for (var y = 0; y < map.height; y++) {
+        for (var x = 0; x < map.width; x++) {
+          final blocked = map.blocked[y * map.width + x];
+          final rect = Rect.fromLTWH(x * unit, y * unit, tileSize, tileSize);
           canvas.drawRect(
-            rect.deflate(3),
-            Paint()..color = const Color(0xff4d6360),
-          );
-          canvas.drawLine(
-            rect.topLeft + const Offset(4, 4),
-            rect.topRight + const Offset(-4, 4),
+            rect,
             Paint()
-              ..color = const Color(0xff708078)
-              ..strokeWidth = 2,
+              ..color = blocked
+                  ? const Color(0xff30484b)
+                  : ((x + y).isEven
+                        ? const Color(0xff80917b)
+                        : const Color(0xff7a8b75)),
           );
-        } else {
-          canvas.drawCircle(
-            rect.topLeft + Offset(10 + (y % 3) * 8, 15 + (x % 3) * 5),
-            1.2,
-            Paint()..color = const Color(0xff687d66),
-          );
+          if (blocked) {
+            canvas.drawRect(
+              rect.deflate(3),
+              Paint()..color = const Color(0xff4d6360),
+            );
+            canvas.drawLine(
+              rect.topLeft + const Offset(4, 4),
+              rect.topRight + const Offset(-4, 4),
+              Paint()
+                ..color = const Color(0xff708078)
+                ..strokeWidth = 2,
+            );
+          } else {
+            canvas.drawCircle(
+              rect.topLeft + Offset(10 + (y % 3) * 8, 15 + (x % 3) * 5),
+              1.2,
+              Paint()..color = const Color(0xff687d66),
+            );
+          }
         }
       }
     }
     for (final landmark in landmarks.where((l) => l.mapId == map.id)) {
-      final center = Offset(
-        (landmark.x + .5) * tileSize,
-        (landmark.y + .5) * tileSize,
-      );
+      final center = Offset((landmark.x + .5) * unit, (landmark.y + .5) * unit);
       final (color, marker) = switch (landmark.kind) {
         WorldLandmarkKind.rest => (const Color(0xffefe8c5), 'R'),
         WorldLandmarkKind.lantern => (const Color(0xffffdd70), 'L'),
@@ -426,11 +706,14 @@ class WorldPainter extends CustomPainter {
       )..layout();
       text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
     }
-    for (final target in targets.where((t) => t.mapId == map.id)) {
-      final center = Offset(
-        (target.x + .5) * tileSize,
-        (target.y + .5) * tileSize,
-      );
+    for (final target in targets.where(
+      (target) =>
+          target.mapId == map.id &&
+          !(hideTownNpcs &&
+              map.id == 'map.bellwether' &&
+              target.kind == WorldTargetKind.npc),
+    )) {
+      final center = Offset((target.x + .5) * unit, (target.y + .5) * unit);
       final opened = openedChests.contains(target.id);
       final color = switch (target.kind) {
         WorldTargetKind.npc => const Color(0xff6ab9ed),
@@ -450,7 +733,12 @@ class WorldPainter extends CustomPainter {
         text: TextSpan(
           text: switch (target.kind) {
             WorldTargetKind.npc => 'N',
-            WorldTargetKind.quest => '!',
+            WorldTargetKind.quest =>
+              target.id == 'quest.cistern.valve'
+                  ? 'V'
+                  : target.id == 'quest.cistern.bell'
+                  ? 'B'
+                  : '!',
             WorldTargetKind.chest => opened ? '-' : 'C',
             WorldTargetKind.exit => '>',
           },
@@ -467,7 +755,7 @@ class WorldPainter extends CustomPainter {
     }
     final spawn = map.spawns.values.first;
     canvas.drawCircle(
-      Offset(spawn.x * tileSize, spawn.y * tileSize),
+      Offset(spawn.x * unit, spawn.y * unit),
       16,
       Paint()
         ..color = const Color(0xffcfdfb4)
@@ -475,7 +763,7 @@ class WorldPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
     if (showPlayer) {
-      final center = Offset(position.x * tileSize, position.y * tileSize);
+      final center = Offset(position.x * unit, position.y * unit);
       canvas.drawOval(
         Rect.fromCenter(
           center: center + const Offset(0, 10),
@@ -484,31 +772,33 @@ class WorldPainter extends CustomPainter {
         ),
         Paint()..color = const Color(0x66304030),
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: center, width: 25, height: 25),
-          const Radius.circular(5),
-        ),
-        Paint()..color = const Color(0xfff6cb70),
-      );
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: center + const Offset(0, 4),
-          width: 25,
-          height: 5,
-        ),
-        Paint()..color = const Color(0xffb56945),
-      );
-      canvas.drawCircle(
-        center + const Offset(-4, -5),
-        2,
-        Paint()..color = const Color(0xff25353a),
-      );
-      canvas.drawCircle(
-        center + const Offset(4, -5),
-        2,
-        Paint()..color = const Color(0xff25353a),
-      );
+      if (drawPlayerBody) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: center, width: 25, height: 25),
+            const Radius.circular(5),
+          ),
+          Paint()..color = const Color(0xfff6cb70),
+        );
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: center + const Offset(0, 4),
+            width: 25,
+            height: 5,
+          ),
+          Paint()..color = const Color(0xffb56945),
+        );
+        canvas.drawCircle(
+          center + const Offset(-4, -5),
+          2,
+          Paint()..color = const Color(0xff25353a),
+        );
+        canvas.drawCircle(
+          center + const Offset(4, -5),
+          2,
+          Paint()..color = const Color(0xff25353a),
+        );
+      }
       if (targets.isNotEmpty) {
         final direction = switch (facing) {
           WalkDirection.up => const Offset(0, -19),
@@ -527,6 +817,12 @@ class WorldPainter extends CustomPainter {
       oldDelegate.map != map ||
       oldDelegate.position != position ||
       oldDelegate.showPlayer != showPlayer ||
+      oldDelegate.drawPlayerBody != drawPlayerBody ||
+      oldDelegate.hideTownNpcs != hideTownNpcs ||
+      oldDelegate.background != background ||
+      oldDelegate.openBackground != openBackground ||
+      oldDelegate.scene != scene ||
+      oldDelegate.sluiceOpen != sluiceOpen ||
       oldDelegate.targets != targets ||
       oldDelegate.landmarks != landmarks ||
       oldDelegate.openedChests != openedChests ||

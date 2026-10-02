@@ -10,8 +10,10 @@ class WorldController {
     required this.collision,
     this.encounters,
     this.interactions,
+    this.speed = tilesPerSecond,
   });
 
+  final double speed;
   final WorldHost host;
   final WorldCollision collision;
   final EncounterStepper? encounters;
@@ -110,7 +112,7 @@ class WorldController {
     facing = active;
     // Discard stall time rather than replaying a browser-tab backlog.
     final dt = elapsedSeconds.clamp(0.0, maximumFrameSeconds);
-    final next = collision.move(state.position, active, tilesPerSecond * dt);
+    final next = collision.move(state.position, active, speed * dt);
     if (next.x == state.position.x && next.y == state.position.y) return false;
     final accepted = host.updatePosition(next, expectedRevision: revision);
     if (accepted && interactions?.exitAfterMovement(host) == true) {

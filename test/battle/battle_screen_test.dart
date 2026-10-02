@@ -10,6 +10,7 @@ import 'package:app_4/battle/ui/battle_screen.dart';
 import 'package:app_4/core/contracts.dart' as shared;
 import 'package:app_4/core/fixtures/contract_fixture.dart';
 import 'package:app_4/ui/game_theme.dart';
+import 'package:app_4/ui/sprite_art.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -230,6 +231,8 @@ void main() {
   ) async {
     final s = session(enemyHp: 100);
     await mount(tester, s);
+    expect(find.byType(EncounterArtwork), findsOneWidget);
+    expect(find.byType(BattlePartyArtwork), findsOneWidget);
     expect(find.text('MP 3 / 3'), findsNWidgets(4));
     await tapKey(tester, 'attack');
     expect(find.text('Cancel target'), findsOneWidget);

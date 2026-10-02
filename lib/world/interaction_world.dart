@@ -5,12 +5,23 @@ import '../core/contracts.dart';
 import '../core/fixtures/contract_fixture.dart';
 import '../ui/content/demo_content.dart';
 import 'world_interactions.dart';
+import 'artwork_world.dart';
 import 'world_map.dart';
 
 /// B4's playable tutorial-island geometry. It deliberately supplies no new
 /// story effects; D's content and A's operations own those later handoffs.
 final class InteractionWorld {
-  InteractionWorld(DemoContent content) {
+  InteractionWorld(DemoContent content, {bool useArtwork = false}) {
+    if (useArtwork) {
+      _content = content;
+      artwork = ArtworkWorld(content);
+      targets = artwork!.targets;
+      landmarks = artwork!.landmarks;
+      maps = artwork!.maps;
+      names = artwork!.names;
+      operations = artwork!.operations;
+      return;
+    }
     _content = content;
     WorldTarget target(
       String id,
@@ -174,15 +185,22 @@ final class InteractionWorld {
     maps = Map.unmodifiable({
       town: _map(
         town,
-        24,
-        16,
+        25,
+        20,
         {'entry': (19, 8), 'from_causeway': (19, 8)},
         {
-          for (var x = 2; x <= 7; x++)
-            if (x != 4) ...{(x, 2), (x, 6)},
-          for (var y = 3; y <= 5; y++) ...{(2, y), (7, y)},
-          for (var x = 14; x <= 17; x++) ...{(x, 3), (x, 12)},
-          for (var y = 4; y <= 11; y++) ...{(14, y), (17, y)},
+          // Bellwether's harbor artwork is authored as a 25 x 20 tile scene.
+          // Keep collision to the solid buildings so visual walls and blocked
+          // movement describe the same spaces. The central monument remains
+          // walkable around its base for Mara's adjacent dialogue position.
+          for (var x = 6; x <= 9; x++)
+            for (var y = 1; y <= 3; y++) (x, y),
+          for (var x = 2; x <= 4; x++)
+            for (var y = 8; y <= 9; y++) (x, y),
+          for (var x = 14; x <= 16; x++)
+            for (var y = 2; y <= 4; y++) (x, y),
+          for (var x = 15; x <= 18; x++)
+            for (var y = 7; y <= 9; y++) (x, y),
         },
       ),
       route: _map(
@@ -280,6 +298,7 @@ final class InteractionWorld {
     }
   }
 
+  ArtworkWorld? artwork;
   late final WorldInteractions targets;
   late final List<WorldLandmark> landmarks;
   late final DemoContent _content;
@@ -330,7 +349,8 @@ final class InteractionWorld {
       map: map,
       initialState:
           restored ?? createContractFixture(position: map.spawns['entry']!),
-      isClear: WorldCollision(map).isClear,
+      isClear:
+          artwork?.collision(map.id).isClear ?? WorldCollision(map).isClear,
       operations: operations,
       contentVersion: _content.version,
       validateSavedState: (state) {

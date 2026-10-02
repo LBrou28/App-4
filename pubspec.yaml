@@ -60,6 +60,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/lantern_wake.json
+    - assets/maps/bellwether_harbor_paths_v3.png
+    - assets/maps/saltglass_causeway_green_removed.png
+    - assets/maps/drowned_cistern_paths_v2.png
+    - assets/maps/drowned_cistern_open_sluice_v2.png
+    - assets/sprites/concepts/
+    - assets/sprites/townsfolk/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

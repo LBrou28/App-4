@@ -93,8 +93,9 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
   late InteractionWorld world;
   final balance = LanternBalance();
   return GameApp(
-    title: 'App-4 • Integration preview',
-    introduction: 'Explore three connected areas. Face an NPC or chest and press E or Interact.\n\nLantern encounters use the registered C3 rules and authored spell/enemy IDs. Pause while exploring to save your journey.',
+    title: 'Lantern Wake',
+    introduction:
+        'The lanterns of Bellwether Harbor are dimming, and a bell beneath the sea has begun to call. Answer Keeper Mara’s plea and follow the fading light into the Tide Cistern.',
     saves: saves ?? LocalSaveRepository(),
     battles: {
       'fixture.battle': createTrainingBattle,
@@ -119,7 +120,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
       final content = DemoContent.decode(
         await rootBundle.loadString('assets/data/lantern_wake.json'),
       );
-      world = InteractionWorld(content);
+      world = InteractionWorld(content, useArtwork: true);
       final entry = world.maps['map.bellwether']!.spawns['entry']!;
       return world.session(
         restored: createLanternInitialState(
@@ -137,6 +138,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
           interactions: world.targets,
           landmarks: world.landmarks,
           mapName: world.names[map.id],
+          artwork: world.artwork,
         ),
   );
 }

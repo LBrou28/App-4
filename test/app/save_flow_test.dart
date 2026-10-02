@@ -252,7 +252,7 @@ void main() {
     final content = DemoContent.decode(
       File('assets/data/lantern_wake.json').readAsStringSync(),
     );
-    final world = InteractionWorld(content);
+    final world = InteractionWorld(content, useArtwork: true);
     final balance = LanternBalance();
     final initial = createLanternInitialState(
       content,
@@ -315,6 +315,16 @@ void main() {
     expect(c.state.inventory.quantities['item.salves'], 4);
 
     takeExit('exit.causeway_to_cistern');
+    final valve = world.operations.questSteps['step.valve']!;
+    moveTo(valve.site);
+    expect(
+      c.openDialogue(valve.interactionId, expectedRevision: c.revision),
+      isTrue,
+    );
+    expect(
+      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      isTrue,
+    );
     final bell = world.operations.questSteps['step.bell']!;
     moveTo(bell.site);
     expect(
@@ -374,6 +384,7 @@ void main() {
     );
     expect(c.state.quests.flags, {
       'quest.lantern.accepted',
+      'quest.cistern.sluice_open',
       'quest.lantern.bell_awake',
       'quest.lantern.complete',
     });
