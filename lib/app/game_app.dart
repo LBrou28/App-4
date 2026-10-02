@@ -314,12 +314,13 @@ class _GameAppState extends State<GameApp> {
 
   void _syncRemoteLanternLink() {
     final snapshot = _lanternLink.snapshot;
-    final shouldApplyHostResult =
-        _lanternLink.isHost && _sharedBattleActive;
+    final shouldApplyHostResult = _lanternLink.isHost && _sharedBattleActive;
     if (snapshot == null ||
+        (_lanternLink.isHost && !shouldApplyHostResult) ||
         snapshot.phase != 'exploration' ||
         _remoteSyncPending ||
-        (_appliedRemoteRevision == snapshot.revision && !shouldApplyHostResult)) {
+        (_appliedRemoteRevision == snapshot.revision &&
+            !shouldApplyHostResult)) {
       return;
     }
     _applyRemoteSnapshot(snapshot);
