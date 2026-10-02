@@ -54,6 +54,8 @@ class _GameAppState extends State<GameApp> {
   String? _saveMessage;
   bool _remoteSyncPending = false;
   int? _appliedRemoteRevision;
+  bool _sharedBattleActive = false;
+  bool _sharedBattleStartPending = false;
 
   Future<void> _refreshSave() async {
     final result = await _controller.readSave();
@@ -232,6 +234,19 @@ class _GameAppState extends State<GameApp> {
 
   void _syncLanternLink() {
     final active = _controller.activeDialogue?.dialogue;
+    final snapshot = _lanternLink.snapshot;
+    final localBattle = _controller.activeBattle;
+    if (localBattle != null &&
+        _lanternLink.isHost &&
+        snapshot?.phase == 'exploration' &&
+        !_sharedBattleStartPending) {
+      _sharedBattleStartPending = true;
+      _lanternLink.startEncounter(
+        definitionId: localBattle.input.request.definitionId,
+        seed: localBattle.input.seed,
+      );
+      return;
+    }
     if (!_controller.paused &&
         (_controller.mode == AppMode.exploration || active != null)) {
       _lanternLink.publishExploration(
@@ -248,6 +263,14 @@ class _GameAppState extends State<GameApp> {
   }
 
   void _onLanternLinkChanged() {
+    final snapshot = _lanternLink.snapshot;
+    if (snapshot?.phase == 'battle') {
+      _sharedBattleActive = true;
+      if (_sharedBattleStartPending) {
+        _sharedBattleStartPending = false;
+        _controller.handoffBattleToLanternLink();
+      }
+    }
     _syncRemoteLanternLink();
     _syncRemoteDialogue();
     if (mounted) setState(() {});
@@ -291,11 +314,12 @@ class _GameAppState extends State<GameApp> {
 
   void _syncRemoteLanternLink() {
     final snapshot = _lanternLink.snapshot;
+    final shouldApplyHostResult =
+        _lanternLink.isHost && _sharedBattleActive;
     if (snapshot == null ||
-        _lanternLink.isHost ||
         snapshot.phase != 'exploration' ||
         _remoteSyncPending ||
-        _appliedRemoteRevision == snapshot.revision) {
+        (_appliedRemoteRevision == snapshot.revision && !shouldApplyHostResult)) {
       return;
     }
     _applyRemoteSnapshot(snapshot);
@@ -304,8 +328,12 @@ class _GameAppState extends State<GameApp> {
   Future<void> _applyRemoteSnapshot(LanternLinkClientSnapshot snapshot) async {
     _remoteSyncPending = true;
     try {
-      await _controller.applyRemoteExplorationState(snapshot.gameState);
+      await _controller.applyRemoteExplorationState(
+        snapshot.gameState,
+        readOnly: !_lanternLink.isHost,
+      );
       _appliedRemoteRevision = snapshot.revision;
+      _sharedBattleActive = false;
     } finally {
       _remoteSyncPending = false;
       if (mounted) _syncRemoteLanternLink();

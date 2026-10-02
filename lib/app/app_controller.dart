@@ -203,7 +203,10 @@ class AppController extends ChangeNotifier
   /// geometry/content checks rather than trusting network data at the UI edge.
   ///
   /// Once applied, the controller is read-only until a local session starts.
-  Future<bool> applyRemoteExplorationState(GameState remote) async {
+  Future<bool> applyRemoteExplorationState(
+    GameState remote, {
+    bool readOnly = true,
+  }) async {
     if (!_canWrite || _mode == AppMode.loading) return false;
     final generation = ++_loadGeneration;
     try {
@@ -229,7 +232,7 @@ class AppController extends ChangeNotifier
       _postBattleDialogue = null;
       _battle = null;
       _paused = false;
-      _remoteReadOnly = true;
+      _remoteReadOnly = readOnly;
       _error = null;
       _mode = AppMode.exploration;
       _publish();
@@ -237,6 +240,17 @@ class AppController extends ChangeNotifier
     } catch (_) {
       return false;
     }
+  }
+
+  /// Releases the local placeholder encounter after Lantern Link has accepted
+  /// the same request. The server is then the sole battle authority.
+  bool handoffBattleToLanternLink() {
+    if (!_canWrite || _mode != AppMode.battle || _battle == null) return false;
+    _battle = null;
+    _postBattleDialogue = null;
+    _mode = AppMode.exploration;
+    _publish();
+    return true;
   }
 
   bool setPaused(bool value) {

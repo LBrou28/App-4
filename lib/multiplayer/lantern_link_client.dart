@@ -85,10 +85,13 @@ final class LanternLinkClient extends ChangeNotifier {
     });
   }
 
-  void startEncounter({String definitionId = 'enemy.brine_mite'}) => _send({
+  void startEncounter({
+    String definitionId = 'enemy.brine_mite',
+    int? seed,
+  }) => _send({
     'type': 'battleStart',
     'definitionId': definitionId,
-    'seed': DateTime.now().microsecondsSinceEpoch,
+    'seed': seed ?? DateTime.now().microsecondsSinceEpoch,
   });
 
   void attack(String actorId, String targetId) =>
