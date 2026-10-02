@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/contracts.dart' as shared;
 import '../../ui/game_theme.dart';
+import '../../ui/sprite_art.dart';
 import '../battle.dart';
 import '../battle_session.dart';
 import 'battle_controller.dart';
@@ -186,11 +187,13 @@ class _BattleScreenState extends State<BattleScreen> {
                           excludeSemantics: true,
                           child: Column(
                             children: [
-                              Icon(
-                                enemy.isAlive
-                                    ? Icons.pest_control
-                                    : Icons.close,
-                                size: 52,
+                              SizedBox(
+                                height: 52,
+                                child: enemy.isAlive
+                                    ? EncounterArtwork(
+                                        isBoss: _controller.session.isBoss,
+                                      )
+                                    : const Icon(Icons.close, size: 52),
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -218,6 +221,12 @@ class _BattleScreenState extends State<BattleScreen> {
         const SizedBox(height: 20),
         Row(
           children: [
+            const SizedBox(
+              width: 72,
+              height: 42,
+              child: BattlePartyArtwork(),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'YOUR PARTY',

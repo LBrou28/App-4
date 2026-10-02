@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../app/world_view_builder.dart';
 import '../core/contracts.dart';
+import '../ui/sprite_art.dart';
 import 'artwork_world.dart';
 import 'cistern_geometry.dart';
 import 'world_camera.dart';
@@ -299,6 +300,8 @@ class _WorldViewState extends State<WorldView>
                           map: widget.map,
                           position: position,
                           showPlayer: error == null,
+                          drawPlayerBody: false,
+                          hideTownNpcs: true,
                           scene: widget.artwork == null
                               ? null
                               : ArtworkWorld.scenes[widget.map.id],
@@ -318,6 +321,73 @@ class _WorldViewState extends State<WorldView>
                         ),
                       ),
                     ),
+                    if (error == null)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final scene = ArtworkWorld.scenes[widget.map.id];
+                          final unit = scene == null
+                              ? WorldPainter.tileSize
+                              : ArtworkScene.displayTile;
+                          final mapSize =
+                              scene?.displaySize ??
+                              Size(
+                                widget.map.width * WorldPainter.tileSize,
+                                widget.map.height * WorldPainter.tileSize,
+                              );
+                          final camera = worldCameraOffset(
+                            viewport: constraints.biggest,
+                            mapSize: mapSize,
+                            player: Offset(position.x * unit, position.y * unit),
+                          );
+                          final townsfolk = widget.map.id == ArtworkWorld.town
+                              ? (widget.interactions?.targets ??
+                                        const <WorldTarget>[])
+                                    .where(
+                                      (target) =>
+                                          target.mapId == ArtworkWorld.town &&
+                                          target.kind == WorldTargetKind.npc,
+                                    )
+                                    .toList()
+                              : const <WorldTarget>[];
+                          return SizedBox.expand(
+                            child: Stack(
+                              children: [
+                                for (final npc in townsfolk)
+                                  Positioned(
+                                    left:
+                                        camera.dx +
+                                        (npc.x + .5) * unit -
+                                        18,
+                                    top:
+                                        camera.dy +
+                                        (npc.y + .5) * unit -
+                                        46,
+                                    child: IgnorePointer(
+                                      child: BellwetherTownspersonSprite(
+                                        variant:
+                                            npc.id == 'npc.orrin' ? 1 : 0,
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  left: camera.dx + position.x * unit - 24,
+                                  top: camera.dy + position.y * unit - 48,
+                                  child: IgnorePointer(
+                                    child: ExplorationHeroSprite(
+                                      directionRow: switch (_controller.facing) {
+                                        WalkDirection.down => 0,
+                                        WalkDirection.up => 1,
+                                        WalkDirection.left => 2,
+                                        WalkDirection.right => 3,
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     if (error != null || !widget.host.movementEnabled)
                       ColoredBox(
                         color: const Color(0x990c171c),

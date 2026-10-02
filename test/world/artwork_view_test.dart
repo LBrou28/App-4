@@ -21,7 +21,7 @@ class NoSave implements SaveRepository {
 
 void main() {
   testWidgets(
-    'main renders three maps, markers and durable open overlay without concept sprites',
+    'main renders three maps, markers, sprites and durable open overlay',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 720);
       tester.view.devicePixelRatio = 1;
@@ -81,10 +81,14 @@ void main() {
           painter().background!.width,
           ArtworkWorld.scenes[map]!.size.width.toInt(),
         );
-        expect(painter().drawPlayerBody, isTrue);
-        expect(painter().hideTownNpcs, isFalse);
-        expect(find.byType(ExplorationHeroSprite), findsNothing);
-        expect(find.byType(BellwetherTownspersonSprite), findsNothing);
+        expect(painter().drawPlayerBody, isFalse);
+        expect(painter().hideTownNpcs, isTrue);
+        expect(find.byType(ExplorationHeroSprite), findsOneWidget);
+        if (map == ArtworkWorld.town) {
+          expect(find.byType(BellwetherTownspersonSprite), findsNWidgets(2));
+        } else {
+          expect(find.byType(BellwetherTownspersonSprite), findsNothing);
+        }
         expect(find.byType(ExplorationPartyArtwork), findsNothing);
         expect(tester.takeException(), isNull);
       }
