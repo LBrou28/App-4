@@ -119,9 +119,9 @@ void main() {
       },
     );
     addTearDown(guest.dispose);
-    final first = createContractFixture();
+    final first = session().initialState;
     final second = GameState(
-      position: const WorldPosition(mapId: 'b1.practice', x: 3.5, y: 2.5),
+      position: WorldPosition(mapId: 'b1.practice', x: 3.5, y: 2.5),
       party: first.party,
       inventory: first.inventory,
       gold: first.gold,

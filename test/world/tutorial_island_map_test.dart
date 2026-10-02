@@ -8,7 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final world = InteractionWorld(
-    DemoContent.decode(File('assets/data/lantern_wake.json').readAsStringSync()),
+    DemoContent.decode(
+      File('assets/data/lantern_wake.json').readAsStringSync(),
+    ),
   );
 
   Set<(int, int)> reachableTiles(String mapId) {
@@ -46,9 +48,16 @@ void main() {
       final mapLandmarks = world.landmarks
           .where((landmark) => landmark.mapId == entry.key)
           .toList();
-      expect(mapLandmarks.map((landmark) => landmark.label).toSet(), entry.value);
+      expect(
+        mapLandmarks.map((landmark) => landmark.label).toSet(),
+        entry.value,
+      );
       for (final landmark in mapLandmarks) {
-        expect(reached, contains((landmark.x, landmark.y)), reason: landmark.id);
+        expect(
+          reached,
+          contains((landmark.x, landmark.y)),
+          reason: landmark.id,
+        );
       }
     }
   });
@@ -58,30 +67,30 @@ void main() {
 
     expect(town.width, 25);
     expect(town.height, 20);
-    expect(
-      WorldCollision(town).isClear(town.spawns['entry']!),
-      isTrue,
-    );
+    expect(WorldCollision(town).isClear(town.spawns['entry']!), isTrue);
   });
 
-  test('the authored maps preserve the return path between each tutorial area', () {
-    final exits = {
-      for (final target in world.targets.targets.where(
-        (target) => target.id.startsWith('exit.'),
-      ))
-        target.id: target,
-    };
+  test(
+    'the authored maps preserve the return path between each tutorial area',
+    () {
+      final exits = {
+        for (final target in world.targets.targets.where(
+          (target) => target.id.startsWith('exit.'),
+        ))
+          target.id: target,
+      };
 
-    expect(exits['exit.harbor_to_causeway']!.mapId, 'map.bellwether');
-    expect(exits['exit.causeway_to_harbor']!.mapId, 'map.salt_path');
-    expect(exits['exit.causeway_to_cistern']!.mapId, 'map.salt_path');
-    expect(exits['exit.cistern_to_causeway']!.mapId, 'map.tide_cistern');
-    for (final exit in exits.values) {
-      expect(
-        reachableTiles(exit.mapId),
-        contains((exit.x, exit.y)),
-        reason: exit.id,
-      );
-    }
-  });
+      expect(exits['exit.harbor_to_causeway']!.mapId, 'map.bellwether');
+      expect(exits['exit.causeway_to_harbor']!.mapId, 'map.salt_path');
+      expect(exits['exit.causeway_to_cistern']!.mapId, 'map.salt_path');
+      expect(exits['exit.cistern_to_causeway']!.mapId, 'map.tide_cistern');
+      for (final exit in exits.values) {
+        expect(
+          reachableTiles(exit.mapId),
+          contains((exit.x, exit.y)),
+          reason: exit.id,
+        );
+      }
+    },
+  );
 }

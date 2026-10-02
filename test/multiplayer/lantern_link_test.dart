@@ -103,22 +103,25 @@ void main() {
     );
   });
 
-  test('host dialogue is included in the authoritative exploration snapshot', () {
-    final value = room();
-    readyTwoPlayerRoom(value);
-    final event = value.publishExploration(
-      'host',
-      value.snapshot.state,
-      expectedRevision: value.snapshot.revision,
-      dialogue: LanternLinkDialogue(
-        id: 'dialogue.keeper',
-        speaker: 'Keeper Mara',
-        lines: ['The bell is awake.'],
-      ),
-    );
-    expect(event.snapshot.dialogue?.speaker, 'Keeper Mara');
-    expect(event.snapshot.dialogue?.lines, ['The bell is awake.']);
-  });
+  test(
+    'host dialogue is included in the authoritative exploration snapshot',
+    () {
+      final value = room();
+      readyTwoPlayerRoom(value);
+      final event = value.publishExploration(
+        'host',
+        value.snapshot.state,
+        expectedRevision: value.snapshot.revision,
+        dialogue: LanternLinkDialogue(
+          id: 'dialogue.keeper',
+          speaker: 'Keeper Mara',
+          lines: ['The bell is awake.'],
+        ),
+      );
+      expect(event.snapshot.dialogue?.speaker, 'Keeper Mara');
+      expect(event.snapshot.dialogue?.lines, ['The bell is awake.']);
+    },
+  );
 
   test('disconnect pauses play until the assigned player reconnects', () {
     final value = room();

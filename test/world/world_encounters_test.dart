@@ -30,7 +30,10 @@ class EncounterHost implements WorldHost {
   bool get movementEnabled => _enabled;
 
   @override
-  bool requestEncounter(EncounterRequest request, {required int expectedRevision}) {
+  bool requestEncounter(
+    EncounterRequest request, {
+    required int expectedRevision,
+  }) {
     if (!_enabled || expectedRevision != _revision) return false;
     requests.add(request);
     _enabled = false;
@@ -60,18 +63,36 @@ class EncounterHost implements WorldHost {
 
 GameState stateAt(String mapId, double x, double y) => GameState(
   position: WorldPosition(mapId: mapId, x: x, y: y),
-  party: List.generate(4, (index) => PartyMember(
-    id: 'hero.$index', jobId: 'job.$index', hp: 1, maxHp: 1, mp: 0, maxMp: 0,
-    level: 1, experience: 0, jobProgress: const {}, equipment: const {},
-  )),
-  inventory: Inventory(const {}), gold: 0,
+  party: List.generate(
+    4,
+    (index) => PartyMember(
+      id: 'hero.$index',
+      jobId: 'job.$index',
+      hp: 1,
+      maxHp: 1,
+      mp: 0,
+      maxMp: 0,
+      level: 1,
+      experience: 0,
+      jobProgress: const {},
+      equipment: const {},
+    ),
+  ),
+  inventory: Inventory(const {}),
+  gold: 0,
   quests: QuestFlags(flags: const {}, openedChestIds: const {}),
 );
 
 void main() {
   final zone = EncounterZone(
-    mapId: 'route', left: 1, top: 1, width: 3, height: 2,
-    definitionId: 'enemy.goblin', rollDenominator: 4, rollThreshold: 1,
+    mapId: 'route',
+    left: 1,
+    top: 1,
+    width: 3,
+    height: 2,
+    definitionId: 'enemy.goblin',
+    rollDenominator: 4,
+    rollThreshold: 1,
   );
 
   test('only accepted movement steps in a zone can request an encounter', () {
@@ -80,7 +101,13 @@ void main() {
     final stepper = EncounterStepper(zones: [zone], random: random);
     expect(stepper.recordAcceptedStep(host), isFalse);
     expect(random.calls, 0);
-    expect(host.updatePosition(WorldPosition(mapId: 'route', x: 1.5, y: 1.5), expectedRevision: 0), isTrue);
+    expect(
+      host.updatePosition(
+        WorldPosition(mapId: 'route', x: 1.5, y: 1.5),
+        expectedRevision: 0,
+      ),
+      isTrue,
+    );
     expect(stepper.recordAcceptedStep(host), isTrue);
     expect(host.requests.single.definitionId, 'enemy.goblin');
     expect(host.movementEnabled, isFalse);
@@ -91,7 +118,11 @@ void main() {
   test('cooldown consumes moved zone steps and does not roll', () {
     final host = EncounterHost(stateAt('route', 1.5, 1.5));
     final random = SequenceRandom([0, 0]);
-    final stepper = EncounterStepper(zones: [zone], random: random, cooldownSteps: 2);
+    final stepper = EncounterStepper(
+      zones: [zone],
+      random: random,
+      cooldownSteps: 2,
+    );
     expect(stepper.recordAcceptedStep(host), isTrue);
     host.returnToExploration();
     expect(stepper.recordAcceptedStep(host), isFalse);
@@ -103,6 +134,18 @@ void main() {
   });
 
   test('invalid zone chance is rejected early', () {
-    expect(() => EncounterZone(mapId: 'x', left: 0, top: 0, width: 1, height: 1, definitionId: 'e', rollDenominator: 3, rollThreshold: 4), throwsArgumentError);
+    expect(
+      () => EncounterZone(
+        mapId: 'x',
+        left: 0,
+        top: 0,
+        width: 1,
+        height: 1,
+        definitionId: 'e',
+        rollDenominator: 3,
+        rollThreshold: 4,
+      ),
+      throwsArgumentError,
+    );
   });
 }

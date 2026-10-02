@@ -32,12 +32,7 @@ BattleSession createC5DemoSession(String definitionId) {
 
 shared.GameState _freshState(LanternJobRules progression) {
   const ids = ['hero.ada', 'hero.ren', 'hero.iona', 'hero.tavi'];
-  const jobs = [
-    'job.warrior',
-    'job.monk',
-    'job.white_mage',
-    'job.black_mage',
-  ];
+  const jobs = ['job.warrior', 'job.monk', 'job.white_mage', 'job.black_mage'];
   return shared.GameState(
     position: shared.WorldPosition(mapId: 'map.bellwether', x: 1.5, y: 1.5),
     party: [
