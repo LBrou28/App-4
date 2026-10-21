@@ -11,7 +11,9 @@ class WorldController {
     this.encounters,
     this.interactions,
     this.speed = tilesPerSecond,
-  });
+  }) {
+    encounters?.enterMap(host.state.position.mapId);
+  }
 
   final double speed;
   final WorldHost host;
@@ -131,8 +133,9 @@ class WorldController {
       _stepDistance +=
           (committed.x - state.position.x).abs() +
           (committed.y - state.position.y).abs();
-      while (_stepDistance >= 1 - 1e-9 && host.movementEnabled) {
-        _stepDistance = (_stepDistance - 1).clamp(0.0, double.infinity);
+      final spacing = encounters!.stepDistance;
+      while (_stepDistance >= spacing - 1e-9 && host.movementEnabled) {
+        _stepDistance = (_stepDistance - spacing).clamp(0.0, double.infinity);
         if (encounters!.recordAcceptedStep(host)) {
           clearInput();
           break;

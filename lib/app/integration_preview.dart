@@ -10,6 +10,8 @@ import '../progression.dart';
 import '../ui/content/demo_content.dart';
 import '../ui/content/lantern_story.dart';
 import '../world/interaction_world.dart';
+import '../world/artwork_encounters.dart';
+import '../world/world_encounters.dart';
 import '../world/world_view.dart';
 import '../save/local_save_repository.dart';
 import 'game_app.dart';
@@ -90,7 +92,11 @@ GameState createLanternInitialState(
 }
 
 /// Connected B/A/C/D preview using C4's party and C5's battle/reward rules.
-Widget buildIntegrationPreview({SaveRepository? saves}) {
+Widget buildIntegrationPreview({
+  SaveRepository? saves,
+  EncounterRandom? encounterRandom,
+}) {
+  late EncounterStepper encounters;
   late InteractionWorld world;
   final balance = LanternBalance();
   return GameApp(
@@ -122,6 +128,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
         await rootBundle.loadString('assets/data/lantern_wake.json'),
       );
       world = InteractionWorld(content, useArtwork: true);
+      encounters = artworkEncounters(world.artwork!, random: encounterRandom);
       final entry = world.maps['map.bellwether']!.spawns['entry']!;
       return world.session(
         restored: createLanternInitialState(
@@ -137,6 +144,7 @@ Widget buildIntegrationPreview({SaveRepository? saves}) {
           host: host,
           changes: changes,
           interactions: world.targets,
+          encounters: encounters,
           landmarks: world.landmarks,
           mapName: world.names[map.id],
           artwork: world.artwork,

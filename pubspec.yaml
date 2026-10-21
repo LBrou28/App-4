@@ -64,6 +64,7 @@ flutter:
     - assets/maps/saltglass_causeway_green_removed.png
     - assets/maps/drowned_cistern_paths_v2.png
     - assets/maps/drowned_cistern_open_sluice_v2.png
+    - assets/sprites/battle/
     - assets/sprites/concepts/
     - assets/sprites/townsfolk/
 
