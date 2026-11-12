@@ -182,7 +182,7 @@ void main() {
       isFalse,
     );
   });
-  test('quest dialogue flags are completion-only and boss victory opens its finale', () async {
+  test('dialogue completion and boss victory grant their flags once', () async {
     final first = map('first');
     final questSite = InteractionSite(
       mapId: first.id,
@@ -258,17 +258,8 @@ void main() {
       c.closeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
       isTrue,
     );
-    expect(c.state.quests.flags, {'quest.accepted'});
-
-    expect(c.openDialogue('quest.bell', expectedRevision: c.revision), isTrue);
-    final retry = c.activeBattle!;
-    win(retry);
-    expect(c.acceptBattleResult(retry.result!), isTrue);
-    expect(
-      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
-      isTrue,
-    );
     expect(c.state.quests.flags, {'quest.accepted', 'quest.bell_awake'});
+    expect(c.openDialogue('quest.bell', expectedRevision: c.revision), isFalse);
     expect(c.openDialogue('npc.mara', expectedRevision: c.revision), isTrue);
     expect(c.activeDialogue!.dialogue.id, 'dialogue.ending');
     expect(

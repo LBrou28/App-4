@@ -12,17 +12,18 @@ to a B interaction target, while the controller remains the only writer of
 2. Sable and the Cistern threshold become available after acceptance. They are
    guidance-only dialogues and do not grant a flag.
 3. Interact with the purple `!` beside the Hollow Bell. The accepted quest
-   launches the registered `enemy.hollow_bell` battle. A victory opens Iona's
-   `dialogue.bell`; only Finish sets `quest.lantern.bell_awake`. Fleeing or
-   closing the finale leaves the flag unset, so the bell can be challenged
-   again.
+   launches the registered `enemy.hollow_bell` battle. Victory commits
+   `quest.lantern.bell_awake` with the combat rewards, then opens Iona's
+   `dialogue.bell`. Closing the followup preserves that victory; the boss
+   cannot be challenged or rewarded again. Defeat and fleeing do not set it.
 4. Finish Mara's `dialogue.ending` after the bell-awake flag is present to set
    `quest.lantern.complete`.
 
-Each accepted operation publishes one coherent revision. Stale dialogue
-tokens, duplicate battle results, cancellation, defeat and fleeing cannot
-advance the quest. The flags are ordinary `GameState` values, so A3's existing
-save codec persists them with the rest of the snapshot.
+Each accepted operation publishes one coherent revision. Ordinary quest
+dialogue remains completion-only; its cancellation cannot grant a flag.
+Encounter-backed flags commit with the first matching victory, including
+Lantern Link's authoritative result. Duplicate snapshots do not replay the
+followup. Flags persist through the existing save codec with no schema change.
 
 ## A3 integration
 

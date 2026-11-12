@@ -192,9 +192,10 @@ final class BattleEngine {
     if (round != snapshot.round) throw StateError('Stale round');
   }
 
-  RoundResult resolveRound({
+  Map<String, HeroCommand> _validateCommands(
+    List<HeroCommand> commands, {
     required int expectedRound,
-    required List<HeroCommand> commands,
+    required bool requireComplete,
   }) {
     _checkRound(expectedRound);
     final byId = {for (final c in snapshot.combatants) c.id: c};
@@ -234,12 +235,37 @@ final class BattleEngine {
       }
       selected[actor.id] = command;
     }
-    if (selected.length !=
-        snapshot.combatants
-            .where((c) => c.side == BattleSide.heroes && c.isAlive)
-            .length) {
+    if (requireComplete &&
+        selected.length !=
+            snapshot.combatants
+                .where((c) => c.side == BattleSide.heroes && c.isAlive)
+                .length) {
       throw ArgumentError('Select one command for every living hero');
     }
+    return selected;
+  }
+
+  void validateCommands({
+    required int expectedRound,
+    required List<HeroCommand> commands,
+    bool requireComplete = true,
+  }) {
+    _validateCommands(
+      commands,
+      expectedRound: expectedRound,
+      requireComplete: requireComplete,
+    );
+  }
+
+  RoundResult resolveRound({
+    required int expectedRound,
+    required List<HeroCommand> commands,
+  }) {
+    final selected = _validateCommands(
+      commands,
+      expectedRound: expectedRound,
+      requireComplete: true,
+    );
     return _resolve(selected);
   }
 

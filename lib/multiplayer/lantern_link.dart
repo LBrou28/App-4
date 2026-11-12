@@ -6,7 +6,7 @@ import '../core/contracts.dart';
 /// submits requests; it never resolves a combat round locally.
 enum LanternLinkMode { twoPlayers, fourPlayers }
 
-enum LanternLinkPhase { lobby, exploration, battle, paused }
+enum LanternLinkPhase { lobby, exploration, battle, paused, gameOver }
 
 typedef BattleSessionFactory = BattleSession Function(BattleInput input);
 
@@ -21,6 +21,9 @@ final class LanternLinkSnapshot {
     required this.state,
     this.dialogue,
     this.battle,
+    this.encounterId,
+    this.encounterDefinitionId,
+    this.outcome,
   }) : players = List<String>.unmodifiable(players),
        assignments = Map<String, List<String>>.unmodifiable({
          for (final entry in assignments.entries)
@@ -36,6 +39,9 @@ final class LanternLinkSnapshot {
   final GameState state;
   final LanternLinkDialogue? dialogue;
   final BattleSnapshot? battle;
+  final String? encounterId;
+  final String? encounterDefinitionId;
+  final BattleOutcome? outcome;
 }
 
 /// A host-authored dialogue payload. The room relays this presentation data but
@@ -74,7 +80,8 @@ final class LanternLinkRoom {
     required this.name,
     required GameState initialState,
     required this.createBattle,
-  }) : _state = initialState {
+  }) : _initialState = initialState,
+       _state = initialState {
     requireId(name, 'room name');
   }
 
@@ -82,6 +89,7 @@ final class LanternLinkRoom {
   final BattleSessionFactory createBattle;
   final List<String> _players = [];
   final Map<String, List<String>> _assignments = {};
+  final GameState _initialState;
   GameState _state;
   LanternLinkMode? _mode;
   LanternLinkPhase _phase = LanternLinkPhase.lobby;
@@ -91,6 +99,9 @@ final class LanternLinkRoom {
   int _encounterSequence = 0;
   String? _hostId;
   LanternLinkDialogue? _dialogue;
+  String? _encounterId;
+  String? _encounterDefinitionId;
+  BattleOutcome? _outcome;
 
   LanternLinkSnapshot get snapshot => LanternLinkSnapshot(
     room: name,
@@ -102,6 +113,9 @@ final class LanternLinkRoom {
     state: _state,
     dialogue: _dialogue,
     battle: _session?.snapshot,
+    encounterId: _encounterId,
+    encounterDefinitionId: _encounterDefinitionId,
+    outcome: _outcome,
   );
 
   LanternLinkEvent join(String playerId) {
@@ -189,16 +203,26 @@ final class LanternLinkRoom {
     if (_phase != LanternLinkPhase.exploration || !_ready) {
       throw StateError('Lobby is not ready for a battle');
     }
-    _session = createBattle(
+    final nextSequence = _encounterSequence + 1;
+    final encounterId = 'lantern-link-$nextSequence';
+    final session = createBattle(
       BattleInput(
-        encounterId: 'lantern-link-${++_encounterSequence}',
+        encounterId: encounterId,
         baseRevision: _revision,
         request: EncounterRequest(definitionId: definitionId),
         state: _state,
         seed: seed,
       ),
     );
+    _encounterSequence = nextSequence;
+    _session = session;
+    _encounterId = encounterId;
+    _encounterDefinitionId = definitionId;
+    _outcome = null;
     _lockedCommands.clear();
+    if (session.result != null) {
+      return _finishOrAdvance('battleFinished');
+    }
     _phase = LanternLinkPhase.battle;
     return _commit('battleStarted');
   }
@@ -225,15 +249,21 @@ final class LanternLinkRoom {
     if (_lockedCommands.containsKey(command.actorId)) {
       throw StateError('Hero command is already locked for this round');
     }
-    _lockedCommands[command.actorId] = command;
+    final candidate = [..._lockedCommands.values, command];
     final livingHeroes = session.snapshot.combatants
         .where((c) => c.side == BattleSide.heroes && c.isAlive)
         .map((c) => c.id)
         .toSet();
-    if (!_lockedCommands.keys.toSet().containsAll(livingHeroes)) {
+    final readyToResolve = {
+      ..._lockedCommands.keys,
+      command.actorId,
+    }.containsAll(livingHeroes);
+    if (!readyToResolve) {
+      session.validateCommands(round, candidate, requireComplete: false);
+      _lockedCommands[command.actorId] = command;
       return _commit('commandLocked');
     }
-    session.resolve(round, _lockedCommands.values.toList());
+    session.resolve(round, candidate);
     _lockedCommands.clear();
     return _finishOrAdvance('roundResolved');
   }
@@ -249,11 +279,33 @@ final class LanternLinkRoom {
         (_assignments[playerId] ?? const []).isEmpty) {
       throw StateError('Only an assigned player can flee');
     }
-    if (!await session.flee()) {
+    if (!session.canFlee) {
+      throw StateError('Escape is unavailable');
+    }
+    final escaped = await session.flee();
+    if (!escaped && session.lastFleeRound == null) {
       throw StateError('Escape was unavailable or failed');
     }
     _lockedCommands.clear();
-    return _finishOrAdvance('fled');
+    return _finishOrAdvance(escaped ? 'fled' : 'fleeFailed');
+  }
+
+  LanternLinkEvent restart(String playerId) {
+    _requireHost(playerId);
+    if (_phase != LanternLinkPhase.gameOver || !_ready) {
+      throw StateError(
+        'Restart requires gameOver and all assigned players present',
+      );
+    }
+    _state = _initialState;
+    _dialogue = null;
+    _session = null;
+    _lockedCommands.clear();
+    _encounterId = null;
+    _encounterDefinitionId = null;
+    _outcome = null;
+    _phase = LanternLinkPhase.exploration;
+    return _commit('restarted');
   }
 
   LanternLinkEvent _finishOrAdvance(String event) {
@@ -270,9 +322,13 @@ final class LanternLinkRoom {
       quests: _state.quests,
     );
     _session = null;
-    _phase = result.outcome == BattleOutcome.defeat
-        ? LanternLinkPhase.paused
-        : LanternLinkPhase.exploration;
+    _encounterId = result.encounterId;
+    _outcome = result.outcome;
+    if (result.outcome == BattleOutcome.defeat) {
+      _phase = LanternLinkPhase.gameOver;
+    } else if (_phase != LanternLinkPhase.paused) {
+      _phase = LanternLinkPhase.exploration;
+    }
     return _commit('battleFinished');
   }
 

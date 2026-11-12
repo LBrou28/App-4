@@ -40,13 +40,17 @@ class AppController extends ChangeNotifier
   BattleSession? get activeBattle => _battle;
   int _encounterSequence = 0;
   @override
-  bool get value => _paused;
+  bool get value => paused;
   final WorldLoader loadWorld;
   GameState _state = createContractFixture();
   WorldSession? _session;
   WorldArea? _area;
   ActiveDialogue? _dialogue;
   WorldQuestStep? _postBattleDialogue;
+  String? _remoteEncounterId;
+  String? _completedRemoteEncounterId;
+  bool _remoteStartPending = false;
+  bool _remoteSessionPaused = false;
   int _dialogueSequence = 0;
   bool _checking = false;
   bool _saving = false;
@@ -67,11 +71,14 @@ class AppController extends ChangeNotifier
   @override
   int get revision => _revision;
   AppMode get mode => _mode;
-  bool get paused => _paused;
+  bool get paused => _paused || _remoteSessionPaused;
 
   /// A Lantern Link guest renders the host's authoritative state but cannot
   /// mutate the local exploration session.
   bool get remoteReadOnly => _remoteReadOnly;
+  bool get remoteBattlePending => _remoteStartPending;
+  bool get remoteBattleActive => _remoteEncounterId != null;
+  bool get remoteSessionPaused => _remoteSessionPaused;
   bool get musicEnabled => _musicEnabled;
   bool get effectsEnabled => _effectsEnabled;
   String? get error => _error;
@@ -81,7 +88,9 @@ class AppController extends ChangeNotifier
       !_disposed &&
       _mode == AppMode.exploration &&
       !_paused &&
-      !_remoteReadOnly;
+      !_remoteReadOnly &&
+      !_remoteStartPending &&
+      !_remoteSessionPaused;
   bool get _canWrite => !_disposed && !_notifying && !_checking && !_saving;
 
   Future<LoadResult> readSave() async =>
@@ -96,6 +105,8 @@ class AppController extends ChangeNotifier
         _mode != AppMode.exploration ||
         !_paused ||
         _remoteReadOnly ||
+        _remoteStartPending ||
+        _remoteSessionPaused ||
         repository == null ||
         version == null) {
       return SaveWriteFailed('Saving is unavailable right now.');
@@ -147,6 +158,7 @@ class AppController extends ChangeNotifier
       _dialogue = null;
       _postBattleDialogue = null;
       _battle = null;
+      _clearRemoteBattle();
       _remoteReadOnly = false;
       _paused = false;
       _error = null;
@@ -176,6 +188,7 @@ class AppController extends ChangeNotifier
     _dialogue = null;
     _postBattleDialogue = null;
     _battle = null;
+    _clearRemoteBattle();
     _remoteReadOnly = false;
     _mode = AppMode.loading;
     _paused = false;
@@ -211,28 +224,29 @@ class AppController extends ChangeNotifier
     }
   }
 
-  /// Applies a validated exploration snapshot received from the Lantern Link
-  /// server. This intentionally reuses the normal world loader and its
-  /// geometry/content checks rather than trusting network data at the UI edge.
-  ///
-  /// Once applied, the controller is read-only until a local session starts.
-  Future<bool> applyRemoteExplorationState(
+  /// Applies the room's authoritative state, including combat and disconnect
+  /// gates. Runtime encounter correlation is never loaded from a save.
+  Future<bool> applyRemoteState(
     GameState remote, {
     bool readOnly = true,
+    AppMode mode = AppMode.exploration,
+    bool sessionPaused = false,
+    String? encounterId,
+    String? encounterDefinitionId,
+    BattleOutcome? outcome,
   }) async {
     if (!_canWrite || _mode == AppMode.loading) return false;
     final generation = ++_loadGeneration;
     try {
-      // Movement snapshots arrive frequently. Once a guest has a validated
-      // world session, reuse it instead of reloading artwork/map data for
-      // every authoritative position update.
       final loaded = _session ?? await loadWorld();
       if (_disposed || generation != _loadGeneration) return false;
-      final area = remote.position.mapId == loaded.map.id
-          ? WorldArea(map: loaded.map, isClear: loaded.isClear)
-          : loaded.operations.areas[remote.position.mapId];
+      final area =
+          loaded.operations.areas[remote.position.mapId] ??
+          (remote.position.mapId == loaded.map.id
+              ? WorldArea(map: loaded.map, isClear: loaded.isClear)
+              : null);
       if (area == null ||
-          !_check(() => area.isClear(remote.position)) ||
+          !_check(() => area.permits(remote.position, remote.quests)) ||
           remote.party.length != loaded.initialState.party.length ||
           !remote.party.asMap().entries.every(
             (entry) =>
@@ -241,16 +255,56 @@ class AppController extends ChangeNotifier
           loaded.validateSavedState?.call(remote) == false) {
         return false;
       }
+      final terminal = outcome != null && encounterId != null;
+      final firstCompletion =
+          terminal && !readOnly && _completedRemoteEncounterId != encounterId;
+      if (terminal && !firstCompletion && !readOnly && !_remoteReadOnly) {
+        if (_remoteSessionPaused != sessionPaused) {
+          _remoteSessionPaused = sessionPaused;
+          _publish();
+        }
+        return true;
+      }
+      WorldQuestStep? followup;
+      if (firstCompletion && outcome == BattleOutcome.victory && !readOnly) {
+        followup = _remoteEncounterId == encounterId
+            ? _postBattleDialogue
+            : null;
+        followup ??= loaded.operations.questSteps.values
+            .where(
+              (step) =>
+                  step.encounterId == encounterDefinitionId &&
+                  remote.quests.flags.containsAll(step.requiresFlags) &&
+                  (step.setsFlag == null ||
+                      !remote.quests.flags.contains(step.setsFlag)),
+            )
+            .firstOrNull;
+      }
       _session = loaded;
       _area = area;
-      _state = remote;
-      _dialogue = null;
-      _postBattleDialogue = null;
+      _state = _withVictoryFlag(remote, followup);
       _battle = null;
       _paused = false;
       _remoteReadOnly = readOnly;
+      _remoteSessionPaused = sessionPaused;
+      _remoteStartPending = false;
       _error = null;
-      _mode = AppMode.exploration;
+      _mode = mode;
+      if (mode == AppMode.battle) {
+        _remoteEncounterId = encounterId;
+        _dialogue = null;
+      } else {
+        _remoteEncounterId = null;
+        _postBattleDialogue = null;
+        if (firstCompletion) _completedRemoteEncounterId = encounterId;
+        _dialogue = followup == null
+            ? null
+            : ActiveDialogue(
+                token: ++_dialogueSequence,
+                dialogue: followup.dialogue,
+              );
+        if (_dialogue != null) _mode = AppMode.dialogue;
+      }
       _publish();
       return true;
     } catch (_) {
@@ -258,20 +312,69 @@ class AppController extends ChangeNotifier
     }
   }
 
-  /// Releases the local placeholder encounter after Lantern Link has accepted
-  /// the same request. The server is then the sole battle authority.
-  bool handoffBattleToLanternLink() {
-    if (!_canWrite || _mode != AppMode.battle || _battle == null) return false;
+  bool beginBattleHandoff() {
+    if (!_canWrite ||
+        _remoteReadOnly ||
+        _remoteStartPending ||
+        _remoteSessionPaused ||
+        _remoteEncounterId != null ||
+        (_mode != AppMode.exploration && _mode != AppMode.battle)) {
+      return false;
+    }
+    _remoteStartPending = true;
+    _publish();
+    return true;
+  }
+
+  void cancelBattleHandoff() {
+    if (!_canWrite || !_remoteStartPending) return;
+    _remoteStartPending = false;
     _battle = null;
     _postBattleDialogue = null;
     _mode = AppMode.exploration;
     _publish();
+  }
+
+  /// Retain the quest continuation and combat gate until a correlated terminal
+  /// server snapshot arrives. A body overlay is not an authority boundary.
+  bool handoffBattleToLanternLink({required String encounterId}) {
+    if (!_canWrite || !_remoteStartPending) return false;
+    _remoteStartPending = false;
+    _remoteEncounterId = encounterId;
+    _battle = null;
+    _mode = AppMode.battle;
+    _publish();
     return true;
+  }
+
+  void _clearRemoteBattle() {
+    _remoteEncounterId = null;
+    _completedRemoteEncounterId = null;
+    _remoteStartPending = false;
+    _remoteSessionPaused = false;
+  }
+
+  GameState _withVictoryFlag(GameState next, WorldQuestStep? followup) {
+    final flag = followup?.setsFlag;
+    if (flag == null || next.quests.flags.contains(flag)) return next;
+    return GameState(
+      position: next.position,
+      party: next.party,
+      inventory: next.inventory,
+      gold: next.gold,
+      quests: QuestFlags(
+        flags: {...next.quests.flags, flag},
+        openedChestIds: next.quests.openedChestIds,
+      ),
+    );
   }
 
   bool setPaused(bool value) {
     if (!_canWrite ||
         _remoteReadOnly ||
+        _remoteStartPending ||
+        _remoteSessionPaused ||
+        _remoteEncounterId != null ||
         (_mode != AppMode.exploration &&
             _mode != AppMode.dialogue &&
             _mode != AppMode.battle) ||
@@ -300,8 +403,9 @@ class AppController extends ChangeNotifier
   }
 
   void returnToTitle() {
-    if (!_canWrite || _mode == AppMode.title) return;
-    ++_loadGeneration; // Cancel pending completions without resetting revision.
+    if (!_canWrite) return;
+    ++_loadGeneration; // Also invalidate a remote load started on the title.
+    _clearRemoteBattle();
     _dialogue = null;
     _postBattleDialogue = null;
     _battle = null;
@@ -543,12 +647,18 @@ class AppController extends ChangeNotifier
         result.baseRevision != session.input.baseRevision) {
       return false;
     }
-    final next = GameState(
-      position: session.input.state.position,
-      party: result.party,
-      inventory: result.inventory,
-      gold: result.gold,
-      quests: session.input.state.quests,
+    final followup = result.outcome == BattleOutcome.victory
+        ? _postBattleDialogue
+        : null;
+    final next = _withVictoryFlag(
+      GameState(
+        position: session.input.state.position,
+        party: result.party,
+        inventory: result.inventory,
+        gold: result.gold,
+        quests: session.input.state.quests,
+      ),
+      followup,
     );
     if (!result.party.asMap().entries.every(
           (entry) => entry.value.id == session.input.state.party[entry.key].id,
@@ -557,9 +667,6 @@ class AppController extends ChangeNotifier
       return false;
     }
     _state = next;
-    final followup = result.outcome == BattleOutcome.victory
-        ? _postBattleDialogue
-        : null;
     _battle =
         null; // Clear before publication: duplicate callbacks cannot commit.
     _postBattleDialogue = null;
@@ -567,7 +674,6 @@ class AppController extends ChangeNotifier
       _dialogue = ActiveDialogue(
         token: ++_dialogueSequence,
         dialogue: followup.dialogue,
-        setsQuestFlag: followup.setsFlag,
       );
       _mode = AppMode.dialogue;
     } else {

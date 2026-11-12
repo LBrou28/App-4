@@ -105,3 +105,9 @@ ws://192.168.0.96:8088/lantern-link
 Have both players join the same room, then the host starts a new game. The guest
 screen mirrors the host's exploration state and participates in shared battles
 with the heroes assigned in the Lantern Link lobby.
+
+Lantern Link waits for the latest exploration state before starting shared
+combat. Shared battles gate local movement/saving; defeat reaches Game Over
+and the host can restart the room with New Game. Leaving returns to title;
+host promotion restores control after disconnected players rejoin. Quest
+victories persist even when their followup dialogue is closed.

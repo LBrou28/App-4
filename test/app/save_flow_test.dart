@@ -363,7 +363,7 @@ void main() {
     expect(c.acceptBattleResult(battle.result!), isTrue);
     expect(c.mode, AppMode.dialogue);
     expect(
-      c.completeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
+      c.closeDialogue(c.activeDialogue!.token, expectedRevision: c.revision),
       isTrue,
     );
     expect(c.state.gold, 50);
@@ -371,6 +371,10 @@ void main() {
     expect(
       c.state.party.every((member) => member.jobProgress[member.jobId] == 90),
       isTrue,
+    );
+    expect(
+      c.openDialogue(bell.interactionId, expectedRevision: c.revision),
+      isFalse,
     );
 
     takeExit('exit.cistern_to_causeway');

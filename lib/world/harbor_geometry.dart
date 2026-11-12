@@ -1,10 +1,12 @@
 import 'dart:ui';
 
+import 'world_spawn.dart';
+
 /// All coordinates are in the original 1402 × 1122 artwork. Rendering and
 /// movement use this same coordinate space, avoiding coarse tile rounding.
 class HarborGeometry {
   static const size = Size(1402, 1122);
-  static const spawn = Offset(11.5 * 1402 / 25, 12.5 * 1122 / 20);
+  static const spawn = Offset(harborSpawnPixelX, harborSpawnPixelY);
   static const footRadius = 6.0;
 
   static Path polygon(List<Offset> points) => Path()..addPolygon(points, true);

@@ -61,9 +61,9 @@ final class WorldDialogue {
 }
 
 /// A content-authored quest moment attached to one of B's interaction sites.
-/// Completing its dialogue can grant one durable quest flag; cancelling it
-/// never changes game state. An encounter-backed step presents its dialogue
-/// only after the matching battle is won.
+/// Ordinary dialogue grants its flag on completion. An encounter-backed step
+/// commits its flag with victory before presenting its optional followup, so
+/// dismissing that dialogue cannot repeat combat or rewards.
 final class WorldQuestStep {
   WorldQuestStep({
     required this.id,

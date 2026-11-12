@@ -53,12 +53,14 @@ map assets, exit/spawn bindings and NPC/chest reach predicates.
 
 `openDialogue` gates movement immediately and creates a monotonically increasing
 session token. GameApp presents Trey's existing `DialoguePanel` once, after the
-current frame (never during synchronous host notification). A handles completion
-or cancellation through `closeDialogue(token, expectedRevision: revision)`.
-The adapter reads the current revision at dismissal; the token rejects an old
-route even after restart or a newer conversation. Duplicate opens/closes reject.
-Both Finish and Close release dialogue without quest flags or rewards. Losing
-app focus during dialogue records pause; dismissing cannot bypass that pause.
+current frame (never during synchronous host notification). A calls
+`completeDialogue(token, expectedRevision: revision)` for Finish and
+`closeDialogue(...)` for cancellation. The current revision and session token
+reject stale routes, including after a restart.
+Ordinary quest dialogue grants its flag only on Finish. Encounter-backed quest
+steps instead commit their flag atomically with victory and rewards, before
+opening the followup; closing it cannot repeat the encounter. Losing focus
+records pause, and dismissing dialogue cannot bypass that pause.
 The world stays mounted; its ticker is gated and held controls are cleared.
 B should request dialogue only, not also open a second UI route.
 

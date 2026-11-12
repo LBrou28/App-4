@@ -57,9 +57,11 @@ class _GameAppState extends State<GameApp> {
   bool _saveBusy = false;
   String? _saveMessage;
   bool _remoteSyncPending = false;
-  int? _appliedRemoteRevision;
   bool _sharedBattleActive = false;
   bool _sharedBattleStartPending = false;
+  bool _hadRemoteSession = false;
+  int _remoteEpoch = 0;
+  String? _attemptedRemoteSnapshot;
 
   Future<void> _refreshSave() async {
     final result = await _controller.readSave();
@@ -96,6 +98,7 @@ class _GameAppState extends State<GameApp> {
   }
 
   void _returnToTitle() {
+    if (_lanternLink.snapshot != null) _lanternLink.disconnect();
     _controller.returnToTitle();
     _saveMessage = null;
     _refreshSave();
@@ -224,6 +227,21 @@ class _GameAppState extends State<GameApp> {
   );
 
   Future<void> _startNewGame() async {
+    if (_lanternLink.snapshot?.phase == 'gameOver' && _lanternLink.isHost) {
+      try {
+        await _lanternLink.restart();
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(_navigator.currentContext!).showSnackBar(
+            SnackBar(content: Text('Shared game could not restart: $error')),
+          );
+        }
+      }
+      return;
+    }
+    if (_controller.mode == AppMode.gameOver && _lanternLink.snapshot != null) {
+      _lanternLink.disconnect();
+    }
     await _controller.newGame();
     if (!mounted || _controller.mode != AppMode.exploration) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -237,6 +255,7 @@ class _GameAppState extends State<GameApp> {
   );
 
   void _syncLanternLink() {
+    if (_remoteSyncPending) return;
     final active = _controller.activeDialogue?.dialogue;
     final snapshot = _lanternLink.snapshot;
     final localBattle = _controller.activeBattle;
@@ -244,38 +263,98 @@ class _GameAppState extends State<GameApp> {
         _lanternLink.isHost &&
         snapshot?.phase == 'exploration' &&
         !_sharedBattleStartPending) {
-      _sharedBattleStartPending = true;
-      _lanternLink.startEncounter(
+      _startSharedBattle(
         definitionId: localBattle.input.request.definitionId,
         seed: localBattle.input.seed,
       );
       return;
     }
     if (!_controller.paused &&
+        !_controller.remoteBattlePending &&
         (_controller.mode == AppMode.exploration || active != null)) {
-      _lanternLink.publishExploration(
-        _controller.state,
-        dialogue: active == null
-            ? null
-            : LanternLinkDialogue(
-                id: active.id,
-                speaker: active.speaker,
-                lines: active.lines,
-              ),
+      _lanternLink
+          .publishExploration(
+            _controller.state,
+            dialogue: active == null
+                ? null
+                : LanternLinkDialogue(
+                    id: active.id,
+                    speaker: active.speaker,
+                    lines: active.lines,
+                  ),
+          )
+          .catchError((Object error) {
+            if (mounted && _lanternLink.snapshot != null) {
+              ScaffoldMessenger.of(_navigator.currentContext!).showSnackBar(
+                SnackBar(
+                  content: Text('Shared state could not be sent: $error'),
+                ),
+              );
+            }
+          });
+    }
+  }
+
+  Future<void> _startSharedBattle({
+    required String definitionId,
+    int? seed,
+  }) async {
+    if (_sharedBattleStartPending) return;
+    _sharedBattleStartPending = true;
+    final epoch = _remoteEpoch;
+    // Controller listeners are read-only; begin the gate after publication.
+    await Future<void>.value();
+    if (!mounted ||
+        epoch != _remoteEpoch ||
+        !_lanternLink.isHost ||
+        _lanternLink.snapshot?.phase != 'exploration') {
+      _sharedBattleStartPending = false;
+      return;
+    }
+    if (!_controller.beginBattleHandoff()) {
+      _sharedBattleStartPending = false;
+      return;
+    }
+    try {
+      await _lanternLink.startEncounter(
+        definitionId: definitionId,
+        seed: seed,
+        state: _controller.state,
+      );
+    } catch (error) {
+      if (!mounted || epoch != _remoteEpoch) return;
+      _sharedBattleStartPending = false;
+      _controller.cancelBattleHandoff();
+      ScaffoldMessenger.of(_navigator.currentContext!).showSnackBar(
+        SnackBar(content: Text('Shared battle could not start: $error')),
       );
     }
   }
 
   void _onLanternLinkChanged() {
     final snapshot = _lanternLink.snapshot;
-    if (snapshot?.phase == 'battle') {
-      _sharedBattleActive = true;
-      if (_sharedBattleStartPending) {
+    if (snapshot == null) {
+      if (_hadRemoteSession) {
+        _hadRemoteSession = false;
+        _remoteEpoch++;
         _sharedBattleStartPending = false;
-        _controller.handoffBattleToLanternLink();
+        _sharedBattleActive = false;
+        _attemptedRemoteSnapshot = null;
+        _controller.returnToTitle();
       }
+    } else {
+      _hadRemoteSession = true;
+      if (snapshot.battle != null) {
+        _sharedBattleActive = true;
+        if (_sharedBattleStartPending && snapshot.encounterId != null) {
+          _sharedBattleStartPending = false;
+          _controller.handoffBattleToLanternLink(
+            encounterId: snapshot.encounterId!,
+          );
+        }
+      }
+      _syncRemoteLanternLink();
     }
-    _syncRemoteLanternLink();
     _syncRemoteDialogue();
     if (mounted) setState(() {});
   }
@@ -318,30 +397,63 @@ class _GameAppState extends State<GameApp> {
 
   void _syncRemoteLanternLink() {
     final snapshot = _lanternLink.snapshot;
-    final shouldApplyHostResult = _lanternLink.isHost && _sharedBattleActive;
-    if (snapshot == null ||
-        (_lanternLink.isHost && !shouldApplyHostResult) ||
-        snapshot.phase != 'exploration' ||
-        _remoteSyncPending ||
-        (_appliedRemoteRevision == snapshot.revision &&
-            !shouldApplyHostResult)) {
+    if (snapshot == null || snapshot.phase == 'lobby' || _remoteSyncPending) {
       return;
     }
+    final host = _lanternLink.isHost;
+    final terminal = snapshot.outcome != null && _sharedBattleActive;
+    final authorityChanged = host && _controller.remoteReadOnly;
+    final gateChanged =
+        snapshot.phase == 'paused' ||
+        snapshot.phase == 'battle' ||
+        snapshot.phase == 'gameOver' ||
+        _controller.remoteSessionPaused ||
+        _controller.mode == AppMode.gameOver;
+    if (host && !terminal && !authorityChanged && !gateChanged) return;
+    final key = '${snapshot.revision}:$host';
+    if (_attemptedRemoteSnapshot == key) return;
+    _attemptedRemoteSnapshot = key;
     _applyRemoteSnapshot(snapshot);
   }
 
   Future<void> _applyRemoteSnapshot(LanternLinkClientSnapshot snapshot) async {
     _remoteSyncPending = true;
+    final epoch = _remoteEpoch;
+    final host = _lanternLink.isHost;
+    var applied = false;
     try {
-      await _controller.applyRemoteExplorationState(
+      final mode = snapshot.phase == 'gameOver'
+          ? AppMode.gameOver
+          : snapshot.battle != null
+          ? AppMode.battle
+          : AppMode.exploration;
+      applied = await _controller.applyRemoteState(
         snapshot.gameState,
-        readOnly: !_lanternLink.isHost,
+        readOnly: !host,
+        mode: mode,
+        sessionPaused: snapshot.phase == 'paused',
+        encounterId: snapshot.encounterId,
+        encounterDefinitionId: snapshot.encounterDefinitionId,
+        outcome: snapshot.outcome == null
+            ? null
+            : BattleOutcome.values.byName(snapshot.outcome!),
       );
-      _appliedRemoteRevision = snapshot.revision;
-      _sharedBattleActive = false;
+      if (!mounted || epoch != _remoteEpoch) return;
+      if (applied) {
+        if (snapshot.outcome != null) _sharedBattleActive = false;
+      }
     } finally {
       _remoteSyncPending = false;
-      if (mounted) _syncRemoteLanternLink();
+      if (mounted) {
+        // The host may have atomically granted a quest victory flag.
+        if (applied &&
+            epoch == _remoteEpoch &&
+            host &&
+            snapshot.outcome == 'victory') {
+          _syncLanternLink();
+        }
+        _syncRemoteLanternLink();
+      }
     }
   }
 
@@ -581,8 +693,10 @@ class _GameAppState extends State<GameApp> {
               );
             }
             final exploring = _controller.mode == AppMode.exploration;
-            final battling = _controller.mode == AppMode.battle;
-            final sharedBattle = _lanternLink.snapshot?.phase == 'battle';
+            final battling =
+                _controller.mode == AppMode.battle &&
+                _controller.activeBattle != null;
+            final sharedBattle = _lanternLink.snapshot?.battle != null;
             return Scaffold(
               appBar: AppBar(
                 title: Text(widget.title),
@@ -603,22 +717,44 @@ class _GameAppState extends State<GameApp> {
                     icon: const Icon(Icons.settings_outlined),
                   ),
                   if (exploring &&
-                      !_controller.paused &&
-                      !_controller.remoteReadOnly &&
-                      widget.trainingEncounterId != null)
+                      _controller.movementEnabled &&
+                      widget.trainingEncounterId != null &&
+                      (_lanternLink.snapshot == null ||
+                          (_lanternLink.isHost &&
+                              _lanternLink.snapshot!.phase == 'exploration')))
                     TextButton(
-                      onPressed: () => _controller.requestEncounter(
-                        EncounterRequest(
-                          definitionId: widget.trainingEncounterId!,
-                        ),
-                        expectedRevision: _controller.revision,
-                      ),
+                      onPressed: () {
+                        if (_lanternLink.snapshot != null) {
+                          _startSharedBattle(definitionId: 'enemy.brine_mite');
+                        } else {
+                          _controller.requestEncounter(
+                            EncounterRequest(
+                              definitionId: widget.trainingEncounterId!,
+                            ),
+                            expectedRevision: _controller.revision,
+                          );
+                        }
+                      },
                       child: const Text('Training battle'),
                     ),
-                  if ((exploring || battling) && !_controller.remoteReadOnly)
+                  if ((exploring ||
+                          battling ||
+                          _controller.remoteBattleActive) &&
+                      !_controller.remoteReadOnly)
                     TextButton(
-                      onPressed: _togglePause,
-                      child: Text(_controller.paused ? 'Resume' : 'Pause'),
+                      onPressed:
+                          _controller.remoteBattleActive ||
+                              _controller.remoteBattlePending
+                          ? _returnToTitle
+                          : _togglePause,
+                      child: Text(
+                        _controller.remoteBattleActive ||
+                                _controller.remoteBattlePending
+                            ? 'End session'
+                            : _controller.paused
+                            ? 'Resume'
+                            : 'Pause',
+                      ),
                     ),
                 ],
               ),
@@ -630,7 +766,7 @@ class _GameAppState extends State<GameApp> {
                         offstage:
                             !exploring && _controller.mode != AppMode.dialogue,
                         child: TickerMode(
-                          enabled: exploring && !_controller.paused,
+                          enabled: _controller.movementEnabled,
                           child: FocusScope(node: _worldFocus, child: _world!),
                         ),
                       ),
@@ -751,6 +887,18 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final snapshot = client.snapshot!;
     final battle = snapshot.battle!;
+    final canAct = snapshot.phase == 'battle';
+    Future<void> submit(Future<void> action) async {
+      try {
+        await action;
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Action rejected: $error')));
+        }
+      }
+    }
+
     final combatants = [
       for (final raw in battle['combatants'] as List)
         Map<String, dynamic>.from(raw as Map),
@@ -877,17 +1025,22 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
                           children: [
                             Expanded(child: Text(name(hero))),
                             OutlinedButton(
-                              onPressed: () =>
-                                  client.defend(hero['id'] as String),
+                              onPressed: !canAct
+                                  ? null
+                                  : () => submit(
+                                      client.defend(hero['id'] as String),
+                                    ),
                               child: const Text('Defend'),
                             ),
                             const SizedBox(width: 8),
                             FilledButton(
-                              onPressed: enemies.isEmpty
+                              onPressed: !canAct || enemies.isEmpty
                                   ? null
-                                  : () => client.attack(
-                                      hero['id'] as String,
-                                      enemies.first['id'] as String,
+                                  : () => submit(
+                                      client.attack(
+                                        hero['id'] as String,
+                                        enemies.first['id'] as String,
+                                      ),
                                     ),
                               child: const Text('Attack'),
                             ),
@@ -899,8 +1052,10 @@ class _LanternLinkBattleOverlay extends StatelessWidget {
                         'Waiting for the players assigned to this round.',
                       ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'The Lantern Link server resolves the round after every assigned hero has chosen.',
+                    Text(
+                      canAct
+                          ? 'The Lantern Link server resolves the round after every assigned hero has chosen.'
+                          : 'Lantern Link is paused until assigned players reconnect.',
                     ),
                   ],
                 ),
