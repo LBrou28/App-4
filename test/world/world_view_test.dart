@@ -3,9 +3,13 @@ import 'dart:ui' as ui;
 
 import 'package:app_4/core/contracts.dart';
 import 'package:app_4/core/fixtures/contract_fixture.dart';
+import 'package:app_4/ui/content/demo_content.dart';
+import 'package:app_4/ui/sprite_art.dart';
 import 'package:app_4/world/demo/demo_host.dart';
 import 'package:app_4/world/demo/main.dart';
+import 'package:app_4/world/interaction_world.dart';
 import 'package:app_4/world/prototype_map.dart';
+import 'package:app_4/world/world_camera.dart';
 import 'package:app_4/world/world_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -217,6 +221,113 @@ void main() {
       tester.view.physicalSize = const Size(480, 640);
       await tester.pump();
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'non-artwork map with artwork scene id aligns sprite overlay to tile scale',
+    (tester) async {
+      final content = DemoContent.decode(
+        File('assets/data/lantern_wake.json').readAsStringSync(),
+      );
+      final nonArtwork = InteractionWorld(content, useArtwork: false);
+      final bellwether = nonArtwork.maps['map.bellwether']!;
+      final bellwetherHost = DemoWorldHost(bellwether);
+      addTearDown(bellwetherHost.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorldView(
+              map: bellwether,
+              host: bellwetherHost,
+              changes: bellwetherHost,
+              interactions: nonArtwork.targets,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final canvasFinder = find.byKey(const ValueKey('world-canvas'));
+      final canvasRect = tester.getRect(canvasFinder);
+      final painter =
+          tester.widget<CustomPaint>(canvasFinder).painter! as WorldPainter;
+      expect(painter.scene, isNull);
+      expect(painter.unit, WorldPainter.tileSize);
+
+      Offset expectedCamera(WorldPosition pos) => worldCameraOffset(
+        viewport: canvasRect.size,
+        mapSize: painter.mapSize,
+        player: Offset(pos.x * painter.unit, pos.y * painter.unit),
+      );
+
+      final initialPos = bellwetherHost.state.position;
+      final initialCamera = expectedCamera(initialPos);
+      final heroTopLeft = tester.getTopLeft(find.byType(ExplorationHeroSprite));
+      final expectedHero =
+          canvasRect.topLeft +
+          initialCamera +
+          Offset(
+            initialPos.x * WorldPainter.tileSize - 24,
+            initialPos.y * WorldPainter.tileSize - 48,
+          );
+      expect(heroTopLeft.dx, closeTo(expectedHero.dx, 0.01));
+      expect(heroTopLeft.dy, closeTo(expectedHero.dy, 0.01));
+
+      final mara = nonArtwork.targets.targets.firstWhere(
+        (target) => target.id == 'npc.mara',
+      );
+      final markerTopLeft = tester.getTopLeft(
+        find.byKey(const ValueKey('quest-marker-mara')),
+      );
+      final expectedMarker =
+          canvasRect.topLeft +
+          initialCamera +
+          Offset(
+            (mara.x + .5) * WorldPainter.tileSize - 15,
+            (mara.y + .5) * WorldPainter.tileSize - 74,
+          );
+      expect(markerTopLeft.dx, closeTo(expectedMarker.dx, 0.01));
+      expect(markerTopLeft.dy, closeTo(expectedMarker.dy, 0.01));
+
+      final maraSpriteTopLeft = tester.getTopLeft(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is BellwetherTownspersonSprite && widget.variant == 0,
+        ),
+      );
+      final expectedMaraSprite =
+          canvasRect.topLeft +
+          initialCamera +
+          Offset(
+            (mara.x + .5) * WorldPainter.tileSize - 18,
+            (mara.y + .5) * WorldPainter.tileSize - 46,
+          );
+      expect(maraSpriteTopLeft.dx, closeTo(expectedMaraSprite.dx, 0.01));
+      expect(maraSpriteTopLeft.dy, closeTo(expectedMaraSprite.dy, 0.01));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+      await step(tester);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+
+      final movedPos = bellwetherHost.state.position;
+      expect(movedPos.x, greaterThan(initialPos.x));
+      final movedCamera = expectedCamera(movedPos);
+      final movedHeroTopLeft = tester.getTopLeft(
+        find.byType(ExplorationHeroSprite),
+      );
+      final expectedMovedHero =
+          canvasRect.topLeft +
+          movedCamera +
+          Offset(
+            movedPos.x * WorldPainter.tileSize - 24,
+            movedPos.y * WorldPainter.tileSize - 48,
+          );
+      expect(movedHeroTopLeft.dx, closeTo(expectedMovedHero.dx, 0.01));
+      expect(movedHeroTopLeft.dy, closeTo(expectedMovedHero.dy, 0.01));
+
       await tester.pumpWidget(const SizedBox());
     },
   );

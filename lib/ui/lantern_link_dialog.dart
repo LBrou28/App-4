@@ -28,19 +28,29 @@ class _LanternLinkDialogState extends State<LanternLinkDialog> {
     super.dispose();
   }
 
-  Future<void> _connect() async {
+  Future<void> _runBusy(Future<void> Function() action) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      await widget.client.connect(
-        endpoint: _address.text,
-        playerId: _name.text,
-      );
+      await action();
     } catch (_) {
       // The client exposes the readable error in its status panel.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _runCommand(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {
+      // The client exposes the readable error in its status panel.
+    }
+  }
+
+  Future<void> _connect() => _runBusy(
+    () => widget.client.connect(endpoint: _address.text, playerId: _name.text),
+  );
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -141,6 +151,16 @@ class _LanternLinkDialogState extends State<LanternLinkDialog> {
           Text(
             'Players (${snapshot.players.length}): ${snapshot.players.join(', ')}',
           ),
+          if (snapshot.phase == 'gameOver') ...[
+            const SizedBox(height: 12),
+            Text(
+              'Game over: the party was defeated.',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ] else if (snapshot.phase == 'paused') ...[
+            const SizedBox(height: 12),
+            const Text('Paused: waiting for all players to reconnect.'),
+          ],
           if (client.isHost && snapshot.phase == 'lobby') ...[
             const SizedBox(height: 16),
             SegmentedButton<int>(
@@ -149,15 +169,19 @@ class _LanternLinkDialogState extends State<LanternLinkDialog> {
                 ButtonSegment(value: 4, label: Text('4 players')),
               ],
               selected: {_players},
-              onSelectionChanged: (value) {
-                setState(() => _players = value.first);
-                client.configurePlayers(value.first);
-              },
+              onSelectionChanged: _busy
+                  ? null
+                  : (value) {
+                      setState(() => _players = value.first);
+                      _runBusy(() => client.configurePlayers(value.first));
+                    },
             ),
             const SizedBox(height: 10),
             FilledButton.tonal(
-              onPressed: snapshot.players.length == _players
-                  ? client.assignEvenly
+              onPressed: !_busy && snapshot.players.length == _players
+                  ? () => _runBusy(
+                      () => client.assignEvenly(playerCount: _players),
+                    )
                   : null,
               child: const Text('Assign heroes and begin exploration'),
             ),
@@ -174,7 +198,7 @@ class _LanternLinkDialogState extends State<LanternLinkDialog> {
           if (snapshot.phase == 'exploration' && client.isHost) ...[
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: client.startEncounter,
+              onPressed: _busy ? null : () => _runBusy(client.startEncounter),
               child: const Text('Start shared training battle'),
             ),
           ],
@@ -189,14 +213,16 @@ class _LanternLinkDialogState extends State<LanternLinkDialog> {
                 children: [
                   Expanded(child: Text(hero)),
                   OutlinedButton(
-                    onPressed: () => client.defend(hero),
+                    onPressed: () => _runCommand(() => client.defend(hero)),
                     child: const Text('Defend'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: enemies.isEmpty
                         ? null
-                        : () => client.attack(hero, enemies.first),
+                        : () => _runCommand(
+                            () => client.attack(hero, enemies.first),
+                          ),
                     child: const Text('Attack'),
                   ),
                 ],

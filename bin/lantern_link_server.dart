@@ -8,6 +8,7 @@ import 'package:app_4/core/contracts.dart';
 import 'package:app_4/multiplayer/lantern_link.dart';
 import 'package:app_4/multiplayer/lantern_link_bootstrap.dart';
 import 'package:app_4/ui/content/demo_content.dart';
+import 'package:app_4/world/world_spawn.dart';
 
 /// Start with: dart run bin/lantern_link_server.dart --room bellwether
 ///
@@ -20,21 +21,28 @@ Future<void> main(List<String> args) async {
   final content = DemoContent.decode(
     await File('assets/data/lantern_wake.json').readAsString(),
   );
-  final state = createLanternLinkInitialState(
-    content,
-    WorldPosition(mapId: 'map.bellwether', x: 19.5, y: 8.5),
-    progression: LanternBalance().progression,
-  );
   final server = LanternLinkServer(
-    LanternLinkRoom(
-      name: roomName,
-      initialState: state,
-      createBattle: LanternBalance().createSession,
-    ),
+    createLanternLinkRoom(roomName: roomName, content: content),
   );
   final bound = await server.start(port: port);
   stdout.writeln(
     'Lantern Link room "$roomName" listening at ws://${bound.address.address}:${bound.port}/lantern-link',
+  );
+}
+
+LanternLinkRoom createLanternLinkRoom({
+  required String roomName,
+  required DemoContent content,
+}) {
+  final state = createLanternLinkInitialState(
+    content,
+    harborEntryPosition(),
+    progression: LanternBalance().progression,
+  );
+  return LanternLinkRoom(
+    name: roomName,
+    initialState: state,
+    createBattle: LanternBalance().createSession,
   );
 }
 
@@ -79,17 +87,41 @@ final class LanternLinkServer {
   }
 
   Future<void> _handleMessage(WebSocket socket, dynamic raw) async {
+    int? requestId;
+    String? requestType;
     try {
       final message = jsonDecode(raw as String);
       if (message is! Map) throw ArgumentError('Expected a JSON object');
       final json = Map<String, dynamic>.from(message);
-      final type = json['type'] as String?;
+      final rawType = json['type'];
+      if (rawType is String) {
+        requestType = rawType;
+      } else if (rawType != null) {
+        throw ArgumentError('type must be a string');
+      }
+      final rawRequestId = json['requestId'];
+      if (rawRequestId is int) {
+        requestId = rawRequestId;
+      } else if (rawRequestId != null) {
+        throw ArgumentError('requestId must be an integer');
+      }
+      final type = requestType;
       LanternLinkEvent event;
+      String requesterId;
       if (type == 'hello') {
-        final playerId = json['playerId'] as String?;
-        if (playerId == null) throw ArgumentError('playerId is required');
+        final rawPlayerId = json['playerId'];
+        if (rawPlayerId is! String) {
+          throw ArgumentError('playerId is required');
+        }
+        final playerId = rawPlayerId;
+        requireId(playerId, 'player ID');
+        final existingPlayerId = _players[socket];
+        if (existingPlayerId != null && existingPlayerId != playerId) {
+          throw StateError('Socket is already identified as $existingPlayerId');
+        }
+        event = room.join(playerId);
         final previous = _players.entries
-            .where((entry) => entry.value == playerId)
+            .where((entry) => entry.key != socket && entry.value == playerId)
             .toList();
         for (final entry in previous) {
           entry.key.close(
@@ -98,16 +130,22 @@ final class LanternLinkServer {
           );
           _players.remove(entry.key);
         }
-        event = room.join(playerId);
         _players[socket] = playerId;
+        requesterId = playerId;
       } else {
         final playerId = _players[socket];
         if (playerId == null) throw StateError('Send hello first');
         event = await _dispatch(playerId, type, json);
+        requesterId = playerId;
       }
-      _broadcast(event);
+      _broadcast(event, requestId: requestId, requesterId: requesterId);
     } catch (error) {
-      _send(socket, {'type': 'error', 'message': error.toString()});
+      _send(socket, {
+        'type': 'error',
+        'message': error.toString(),
+        'requestId': ?requestId,
+        'requestType': ?requestType,
+      });
     }
   }
 
@@ -118,9 +156,13 @@ final class LanternLinkServer {
   ) async {
     switch (type) {
       case 'configure':
+        final mode = json['mode'];
+        if (mode != 'two' && mode != 'four') {
+          throw ArgumentError('mode must be "two" or "four"');
+        }
         return room.configure(
           playerId,
-          json['mode'] == 'four'
+          mode == 'four'
               ? LanternLinkMode.fourPlayers
               : LanternLinkMode.twoPlayers,
         );
@@ -153,6 +195,8 @@ final class LanternLinkServer {
         );
       case 'flee':
         return room.flee(playerId, round: json['round'] as int);
+      case 'restart':
+        return room.restart(playerId);
       default:
         throw ArgumentError('Unknown message type: $type');
     }
@@ -163,8 +207,17 @@ final class LanternLinkServer {
     if (playerId != null) _broadcast(room.leave(playerId));
   }
 
-  void _broadcast(LanternLinkEvent event) {
-    final payload = {'type': event.kind, 'snapshot': _snapshot(event.snapshot)};
+  void _broadcast(
+    LanternLinkEvent event, {
+    int? requestId,
+    String? requesterId,
+  }) {
+    final payload = <String, Object?>{
+      'type': event.kind,
+      'snapshot': _snapshot(event.snapshot),
+      'requestId': ?requestId,
+      'requesterId': ?requesterId,
+    };
     for (final socket in _players.keys.toList()) {
       _send(socket, payload);
     }
@@ -176,14 +229,26 @@ final class LanternLinkServer {
 }
 
 HeroCommand _command(Map<String, dynamic> json) {
-  final actor = json['actorId'] as String;
-  final target = json['targetId'] as String?;
-  final effect = json['effectId'] as String?;
-  return switch (json['action'] as String) {
-    'attack' => HeroCommand.attack(actor, target!),
+  final actor = json['actorId'];
+  final target = json['targetId'];
+  final effect = json['effectId'];
+  final action = json['action'];
+  if (actor is! String) throw ArgumentError('actorId is required');
+  if (action is! String) throw ArgumentError('action is required');
+  return switch (action) {
+    'attack' =>
+      target is String
+          ? HeroCommand.attack(actor, target)
+          : throw ArgumentError('targetId is required for attack'),
     'defend' => HeroCommand.defend(actor),
-    'spell' => HeroCommand.spell(actor, effect!, target!),
-    'item' => HeroCommand.item(actor, effect!, target!),
+    'spell' =>
+      effect is String && target is String
+          ? HeroCommand.spell(actor, effect, target)
+          : throw ArgumentError('effectId and targetId are required for spell'),
+    'item' =>
+      effect is String && target is String
+          ? HeroCommand.item(actor, effect, target)
+          : throw ArgumentError('effectId and targetId are required for item'),
     _ => throw ArgumentError('Unknown battle action'),
   };
 }
@@ -219,6 +284,9 @@ Map<String, Object?> _snapshot(LanternLinkSnapshot value) => {
           },
       ],
     },
+  'encounterId': value.encounterId,
+  'encounterDefinitionId': value.encounterDefinitionId,
+  'outcome': value.outcome?.name,
 };
 
 LanternLinkDialogue _dialogue(Map<String, dynamic> json) => LanternLinkDialogue(

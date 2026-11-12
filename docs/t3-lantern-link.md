@@ -21,19 +21,34 @@ use a trusted classroom/home network only.
 
 Run the Flutter game in Chrome, choose **Lantern Link** from the title screen
 or the group icon in the app bar, then enter the server address and a player
-name. The first player is the host. The host chooses a two- or four-player
-room after everyone joins, then uses **Assign heroes and begin exploration**.
+name. The first player is the host. After everyone joins, the host selects two
+or four players and uses **Assign heroes and begin exploration**. The default
+two-player selection works without toggling it: assignment first configures
+the mode and waits for the server acknowledgement.
 
-The lobby shows the authoritative player list and assignments to every joined
-browser. The host's exploration state is published to the room; guests receive
-that state without movement controls. In the shared training battle, each
-player has Attack/Defend buttons only for their own heroes.
+The host starts a New Game and explores; guests mirror the host without local
+movement authority. The app-bar Training battle uses a server-supported shared
+encounter while connected, rather than sending the offline fixture encounter.
+Each player selects Attack/Defend for their own heroes. Shared combat gates
+local movement, encounters and saves until its authoritative terminal result.
 
 ## Protocol
 
 Messages are JSON objects. Every successful request broadcasts a message whose
 `snapshot` contains the authoritative lobby, party assignment, exploration
 state, and (while active) battle state.
+
+Requests carry a client-local integer `requestId`. Successful broadcasts echo
+that ID and `requesterId`; errors echo the request ID only to its sender.
+Clients match both the sender and ID, and wait for exploration publications to
+be acknowledged before sending `battleStart`. Rejected starts release the
+pending local gate so the next attempt remains usable.
+
+Snapshots retain `encounterId`, `encounterDefinitionId` and `outcome` after
+combat. A new encounter clears its outcome and allocates a new identity.
+The host applies quest victory flags/followup once, independently of the
+combat reward snapshot. A promoted guest can reconcile a missing quest flag
+without granting combat rewards again.
 
 1. Connect to `/lantern-link`, then send `{"type":"hello","playerId":"host"}`.
    The first player is the host.
@@ -58,9 +73,20 @@ locked a command, the server resolves exactly one existing C battle round and
 broadcasts the result. Duplicate, stale, and unauthorized submissions return
 an error without changing the room.
 
-If a player disconnects during play, the server pauses the room. Reconnecting
-with the same player ID restores the prior party assignment and resumes it only
-when every assigned player is present. This is T3's safe disconnect fallback.
+Invalid owned commands are checked before locking, including reservations of
+shared items. They can be corrected in the same round. A resolved failed
+`flee` publishes the enemy response and new round, or the terminal defeat.
+
+If a player disconnects during play, the room pauses. Reconnecting with the
+same player ID restores their assignment; play resumes only when every assigned
+player is present. The elected host gains exploration authority after that
+gate clears. **Leave room** returns the departing client to a usable title
+screen and invalidates pending remote loads.
+
+Defeat is the separate `gameOver` phase, not a disconnect pause. Both clients
+apply the final party/resources. The host's **New Game** sends `restart`, which
+restores the room's original party/world state while preserving assignments
+and monotonic encounter identities. Restart requires all assigned players.
 
 ## Current integration boundary
 
@@ -68,5 +94,7 @@ The server uses the production C5 encounter factory and C4 party data. It owns
 lobby state, command authorization, battle resolution, rewards, and shared
 return state. B's collision and map logic still run in the elected host game;
 the host may publish resulting exploration snapshots while joined players are
-read-only. A browser lobby/game client should use this documented protocol as a
-follow-up UI slice; it does not need server-side combat logic.
+read-only. The server starts at the same collision-clear artwork entry as the
+local game. Android release builds request Internet access; macOS debug and
+release sandboxes grant outgoing network access. The server is still a trusted
+LAN prototype, not an authenticated public hosting service.

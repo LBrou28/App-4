@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:app_4/app/app_controller.dart';
 import 'package:app_4/app/integration_preview.dart';
 import 'package:app_4/core/contracts.dart';
+import 'package:app_4/multiplayer/lantern_link_bootstrap.dart';
 import 'package:app_4/ui/content/demo_content.dart';
 import 'package:app_4/world/artwork_world.dart';
+import 'package:app_4/world/harbor_geometry.dart';
 import 'package:app_4/world/interaction_world.dart';
 import 'package:app_4/world/world_interactions.dart';
 import 'package:app_4/world/world_map.dart';
+import 'package:app_4/world/world_spawn.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MemorySave implements SaveRepository {
@@ -247,4 +250,38 @@ void main() {
     expect(await host.continueGame(), isA<SaveUnreadable>());
     expect(host.mode, AppMode.title);
   });
+
+  test(
+    'harborEntryPosition matches artwork entry and clears bootstrap state',
+    () async {
+      final entry = harborEntryPosition();
+      final worldEntry = world.maps[ArtworkWorld.town]!.spawns['entry']!;
+      expect(entry.mapId, worldEntry.mapId);
+      expect(entry.x, worldEntry.x);
+      expect(entry.y, worldEntry.y);
+      expect(
+        ArtworkWorld.scenes[ArtworkWorld.town]!.pixels(entry),
+        HarborGeometry.spawn,
+      );
+      expect(art.isClear(entry, const {}), isTrue);
+      expect(art.collision(ArtworkWorld.town).isClear(entry), isTrue);
+
+      final linkState = createLanternLinkInitialState(art.content, entry);
+      expect(
+        art.collision(ArtworkWorld.town).isClear(linkState.position),
+        isTrue,
+      );
+
+      final host = AppController(
+        loadWorld: () async => world.session(restored: linkState),
+        saves: MemorySave(),
+      );
+      addTearDown(host.dispose);
+      await host.newGame();
+      expect(host.mode, AppMode.exploration);
+      expect(host.state.position.mapId, worldEntry.mapId);
+      expect(host.state.position.x, worldEntry.x);
+      expect(host.state.position.y, worldEntry.y);
+    },
+  );
 }

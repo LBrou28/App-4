@@ -372,7 +372,9 @@ class _WorldViewState extends State<WorldView>
                     if (error == null)
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final scene = ArtworkWorld.scenes[widget.map.id];
+                          final scene = widget.artwork == null
+                              ? null
+                              : ArtworkWorld.scenes[widget.map.id];
                           final unit = scene == null
                               ? WorldPainter.tileSize
                               : ArtworkScene.displayTile;

@@ -60,7 +60,10 @@ final class BattleSession {
   bool get isBoss =>
       snapshot.combatants.any((c) => c.side == BattleSide.enemies && c.isBoss);
   bool get canFlee =>
-      result == null && !isBoss && (fleePolicy != null || _engine.canFlee);
+      result == null &&
+      !_fleePending &&
+      !isBoss &&
+      (fleePolicy != null || _engine.canFlee);
   RoundResult? lastFleeRound;
   BattleSnapshot get snapshot => _engine.snapshot;
   shared.BattleResult? get result => _result;
@@ -84,6 +87,21 @@ final class BattleSession {
       mp: member.mp,
       maxMp: member.maxMp,
       spellIds: spells,
+    );
+  }
+
+  void validateCommands(
+    int round,
+    List<HeroCommand> commands, {
+    bool requireComplete = true,
+  }) {
+    if (_result != null || _fleePending) {
+      throw StateError('Battle is unavailable');
+    }
+    _engine.validateCommands(
+      expectedRound: round,
+      commands: commands,
+      requireComplete: requireComplete,
     );
   }
 

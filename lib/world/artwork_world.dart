@@ -9,6 +9,7 @@ import 'causeway_geometry.dart';
 import 'cistern_geometry.dart';
 import 'world_map.dart';
 import 'world_interactions.dart';
+import 'world_spawn.dart';
 
 /// Art coordinates, collision and markers share one 8px tile-space transform.
 /// The grid is catalog/save metadata; movement uses the reviewed polygons.
@@ -17,7 +18,7 @@ class ArtworkScene {
   final String id;
   final String asset;
   final Size size;
-  static const pixelsPerTile = 8.0;
+  static const pixelsPerTile = artworkPixelsPerTile;
   static const zoom = 1.5;
   static const displayTile = pixelsPerTile * zoom;
   Offset pixels(WorldPosition p) => Offset(p.x, p.y) * pixelsPerTile;

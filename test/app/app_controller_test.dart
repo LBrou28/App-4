@@ -99,7 +99,7 @@ void main() {
       isTrue,
     );
 
-    expect(await guest.applyRemoteExplorationState(host.state), isTrue);
+    expect(await guest.applyRemoteState(host.state), isTrue);
     expect(guest.mode, AppMode.exploration);
     expect(guest.state.position, same(position));
     expect(guest.remoteReadOnly, isTrue);
@@ -127,8 +127,8 @@ void main() {
       gold: first.gold,
       quests: first.quests,
     );
-    expect(await guest.applyRemoteExplorationState(first), isTrue);
-    expect(await guest.applyRemoteExplorationState(second), isTrue);
+    expect(await guest.applyRemoteState(first), isTrue);
+    expect(await guest.applyRemoteState(second), isTrue);
     expect(loads, 1);
   });
   test(
