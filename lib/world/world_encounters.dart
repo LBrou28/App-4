@@ -17,9 +17,13 @@ final class EncounterZone {
     required this.definitionId,
     required this.rollDenominator,
     required this.rollThreshold,
+    this.alternativeDefinitionIds = const [],
   }) {
     requireId(mapId, 'encounter map id');
     requireId(definitionId, 'encounter definition id');
+    for (final id in alternativeDefinitionIds) {
+      requireId(id, 'alternative encounter definition id');
+    }
     if (left < 0 || top < 0 || width <= 0 || height <= 0) {
       throw ArgumentError('Encounter zone bounds must be positive');
     }
@@ -36,6 +40,7 @@ final class EncounterZone {
   final int width;
   final int height;
   final String definitionId;
+  final List<String> alternativeDefinitionIds;
   final int rollDenominator;
   final int rollThreshold;
 
@@ -55,21 +60,48 @@ class EncounterStepper {
     required List<EncounterZone> zones,
     required this.random,
     this.cooldownSteps = 3,
+    this.initialCooldownSteps = 0,
+    this.stepDistance = 1,
+    this.canEncounter,
   }) : _zones = List.unmodifiable(zones) {
-    if (cooldownSteps < 0) throw ArgumentError.value(cooldownSteps);
+    if (cooldownSteps < 0 || initialCooldownSteps < 0) {
+      throw ArgumentError("Encounter cooldown cannot be negative");
+    }
+    if (!stepDistance.isFinite || stepDistance <= 0) {
+      throw ArgumentError.value(stepDistance, "stepDistance");
+    }
+    _remainingCooldown = initialCooldownSteps;
   }
 
   final List<EncounterZone> _zones;
   final EncounterRandom random;
   final int cooldownSteps;
+  final int initialCooldownSteps;
+
+  /// Committed world-space travel between checks, independent of frame rate.
+  final double stepDistance;
+  final bool Function(WorldPosition)? canEncounter;
+  String? _mapId;
   int _remainingCooldown = 0;
 
   int get remainingCooldown => _remainingCooldown;
+
+  /// Called on controller attachment as well as checks, so even an immediate
+  /// exit/re-entry grants grace without discarding a longer post-battle cooldown.
+  void enterMap(String mapId) {
+    if (_mapId == mapId) return;
+    _mapId = mapId;
+    if (_remainingCooldown < initialCooldownSteps) {
+      _remainingCooldown = initialCooldownSteps;
+    }
+  }
 
   /// Returns true only when the host accepted one new encounter request.
   bool recordAcceptedStep(WorldHost host) {
     if (!host.movementEnabled) return false;
     final position = host.state.position;
+    enterMap(position.mapId);
+    if (canEncounter?.call(position) == false) return false;
     final zone = _zones.where((zone) => zone.contains(position)).firstOrNull;
     if (zone == null) return false;
     if (_remainingCooldown > 0) {
@@ -79,8 +111,12 @@ class EncounterStepper {
     if (random.nextInt(zone.rollDenominator) >= zone.rollThreshold) {
       return false;
     }
+    final definitions = [zone.definitionId, ...zone.alternativeDefinitionIds];
+    final definition = definitions.length == 1
+        ? definitions.single
+        : definitions[random.nextInt(definitions.length)];
     final accepted = host.requestEncounter(
-      EncounterRequest(definitionId: zone.definitionId),
+      EncounterRequest(definitionId: definition),
       expectedRevision: host.revision,
     );
     if (accepted) _remainingCooldown = cooldownSteps;
@@ -89,5 +125,8 @@ class EncounterStepper {
 
   /// Use after an accepted map transition or a New Game/load that replaces the
   /// current exploration context. No encounter rolls occur while standing still.
-  void resetCooldown() => _remainingCooldown = 0;
+  void resetCooldown() {
+    _mapId = null;
+    _remainingCooldown = initialCooldownSteps;
+  }
 }
